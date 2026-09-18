@@ -1,0 +1,92 @@
+[
+  {
+    "id": "shower",
+    "name": "Chuveiro Elétrico",
+    "category": "Banheiro",
+    "power_watts": 5500,
+    "default_hours_per_day": 0.5,
+    "default_days_per_month": 30,
+    "description": "Um dos aparelhos com maior potência na residência. Poucos minutos fazem grande diferença."
+  },
+  {
+    "id": "air_conditioner",
+    "name": "Ar-Condicionado 9.000 BTU",
+    "category": "Climatização",
+    "power_watts": 900,
+    "default_hours_per_day": 8.0,
+    "default_days_per_month": 30,
+    "description": "Uso prolongado ao longo da noite tem impacto relevante na fatura mensal."
+  },
+  {
+    "id": "fridge",
+    "name": "Geladeira Frost Free",
+    "category": "Cozinha",
+    "power_watts": 150,
+    "default_hours_per_day": 12.0,
+    "default_days_per_month": 30,
+    "description": "Fica ligada 24 horas, mas o compressor opera intermitentemente (cerca de 10-12h diárias equivalentes)."
+  },
+  {
+    "id": "led_tv",
+    "name": "Smart TV 50''",
+    "category": "Sala",
+    "power_watts": 100,
+    "default_hours_per_day": 5.0,
+    "default_days_per_month": 30,
+    "description": "Consumo moderado, que varia conforme o brilho e volume."
+  },
+  {
+    "id": "microwave",
+    "name": "Forno Micro-ondas",
+    "category": "Cozinha",
+    "power_watts": 1200,
+    "default_hours_per_day": 0.3,
+    "default_days_per_month": 30,
+    "description": "Alta potência, porém utilizado por poucos minutos durante o dia."
+  },
+  {
+    "id": "washing_machine",
+    "name": "Máquina de Lavar Roupas",
+    "category": "Lavanderia",
+    "power_watts": 500,
+    "default_hours_per_day": 1.5,
+    "default_days_per_month": 12,
+    "description": "Uso pontual em determinados dias da semana."
+  },
+  {
+    "id": "fan",
+    "name": "Ventilador de Mesa",
+    "category": "Climatização",
+    "power_watts": 80,
+    "default_hours_per_day": 8.0,
+    "default_days_per_month": 30,
+    "description": "Excelente alternativa econômica para ventilar o ambiente em dias quentes."
+  },
+  {
+    "id": "led_bulb_pack",
+    "name": "Iluminação LED (Conjunto de 5 lâmpadas)",
+    "category": "Iluminação",
+    "power_watts": 45,
+    "default_hours_per_day": 5.0,
+    "default_days_per_month": 30,
+    "description": "Lâmpadas LED são até 80% mais econômicas que as antigas incandescentes."
+  },
+  {
+    "id": "iron",
+    "name": "Ferro de Passar Roupas",
+    "category": "Lavanderia",
+    "power_watts": 1500,
+    "default_hours_per_day": 1.0,
+    "default_days_per_month": 8,
+    "description": "Aquecimento resistivo de alta potência; passar roupas em lote economiza energia."
+  },
+  {
+    "id": "air_fryer",
+    "name": "Fritadeira Sem Óleo (Air Fryer)",
+    "category": "Cozinha",
+    "power_watts": 1500,
+    "default_hours_per_day": 0.5,
+    "default_days_per_month": 20,
+    "description": "Prática e rápida, consome bastante potência enquanto a resistência estiver acionada."
+  }
+]

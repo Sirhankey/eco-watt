@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Potência x Consumo de Energia",
+    "fact": "Potência é medida em Watts (W) e indica a demanda instantânea do aparelho. Já a energia consumida é medida em kWh (quilowatt-hora), que é a potência multiplicada pelo tempo de uso."
+  },
+  {
+    "title": "O Chuveiro Elétrico e a Potência",
+    "fact": "Um chuveiro elétrico pode ter potência entre 4.500 W e 7.500 W. Reduzir o tempo no banho em apenas 5 minutos diários pode poupar dezenas de reais na conta de luz ao final do mês."
+  },
+  {
+    "title": "Consumo Fantasma (Stand-by)",
+    "fact": "Aparelhos mantidos em modo stand-by (com a luzinha vermelha acesa) continuam consumindo entre 1 W e 15 W cada um. Em uma casa média, o stand-by pode representar até 12% da conta!"
+  },
+  {
+    "title": "A Revolução do LED",
+    "fact": "Uma lâmpada LED consome cerca de 9 W a 10 W para iluminar o mesmo que uma antiga lâmpada incandescente de 60 W. Isso representa uma economia direta de mais de 80% na iluminação."
+  },
+  {
+    "title": "Geladeiras e Troca de Calor",
+    "fact": "Evitar guardar alimentos ainda quentes na geladeira e manter as borrachas de vedação limpas reduz o esforço do compressor, economizando energia e prolongando a vida útil do motor."
+  },
+  {
+    "title": "PC Gamer e Carga de Trabalho",
+    "fact": "Um computador não consome a potência máxima da fonte o tempo todo. Navegando na web ou estudando, o consumo costuma ficar abaixo de 60 W. Em jogos pesados, a GPU e a CPU exigem muito mais energia."
+  }
+]

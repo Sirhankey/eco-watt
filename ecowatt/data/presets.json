@@ -1,0 +1,146 @@
+[
+  {
+    "id": "casa_tipica",
+    "name": "Casa Típica Brasileira (Família de 3 a 4 pessoas)",
+    "description": "Simulação com uso equilibrado de chuveiro elétrico, geladeira contínua, TV e máquina de lavar.",
+    "tariff": 0.85,
+    "appliances": [
+      {
+        "id": "shower_preset",
+        "name": "Chuveiro Elétrico (Família)",
+        "category": "Banheiro",
+        "power_watts": 5500,
+        "hours_per_day": 0.8,
+        "days_per_month": 30
+      },
+      {
+        "id": "fridge_preset",
+        "name": "Geladeira Frost Free",
+        "category": "Cozinha",
+        "power_watts": 150,
+        "hours_per_day": 12.0,
+        "days_per_month": 30
+      },
+      {
+        "id": "tv_preset",
+        "name": "Smart TV Sala",
+        "category": "Sala",
+        "power_watts": 100,
+        "hours_per_day": 5.0,
+        "days_per_month": 30
+      },
+      {
+        "id": "led_preset",
+        "name": "Iluminação LED Geral",
+        "category": "Iluminação",
+        "power_watts": 60,
+        "hours_per_day": 6.0,
+        "days_per_month": 30
+      },
+      {
+        "id": "washer_preset",
+        "name": "Máquina de Lavar",
+        "category": "Lavanderia",
+        "power_watts": 500,
+        "hours_per_day": 1.5,
+        "days_per_month": 12
+      },
+      {
+        "id": "fan_preset",
+        "name": "Ventilador",
+        "category": "Climatização",
+        "power_watts": 80,
+        "hours_per_day": 6.0,
+        "days_per_month": 25
+      }
+    ]
+  },
+  {
+    "id": "casa_sustentavel",
+    "name": "Casa Eficiente e Sustentável",
+    "description": "Foco em banhos curtos, iluminação LED de alta eficiência, ventilador em vez de AC e eletrodomésticos inverter.",
+    "tariff": 0.85,
+    "appliances": [
+      {
+        "id": "shower_eco",
+        "name": "Chuveiro Elétrico (Banhos curtos 5min)",
+        "category": "Banheiro",
+        "power_watts": 4500,
+        "hours_per_day": 0.35,
+        "days_per_month": 30
+      },
+      {
+        "id": "fridge_eco",
+        "name": "Geladeira Inverter Classe A+++",
+        "category": "Cozinha",
+        "power_watts": 100,
+        "hours_per_day": 10.0,
+        "days_per_month": 30
+      },
+      {
+        "id": "led_eco",
+        "name": "Lâmpadas LED Eficientes",
+        "category": "Iluminação",
+        "power_watts": 35,
+        "hours_per_day": 4.0,
+        "days_per_month": 30
+      },
+      {
+        "id": "tv_eco",
+        "name": "Smart TV LED",
+        "category": "Sala",
+        "power_watts": 75,
+        "hours_per_day": 3.0,
+        "days_per_month": 30
+      },
+      {
+        "id": "fan_eco",
+        "name": "Ventilador Eficiente",
+        "category": "Climatização",
+        "power_watts": 60,
+        "hours_per_day": 4.0,
+        "days_per_month": 20
+      }
+    ]
+  },
+  {
+    "id": "quarto_gamer",
+    "name": "Quarto Conectado & Gamer",
+    "description": "Foco em tecnologia com PC gamer potente de muitas horas, monitor gamer e ar-condicionado.",
+    "tariff": 0.85,
+    "appliances": [
+      {
+        "id": "pc_gamer_preset",
+        "name": "Computador Desktop Gamer Completo",
+        "category": "Tecnologia",
+        "power_watts": 380,
+        "hours_per_day": 6.0,
+        "days_per_month": 30
+      },
+      {
+        "id": "ac_quarto",
+        "name": "Ar-Condicionado Quarto",
+        "category": "Climatização",
+        "power_watts": 900,
+        "hours_per_day": 7.0,
+        "days_per_month": 25
+      },
+      {
+        "id": "mon_preset",
+        "name": "Monitor Gamer 144Hz",
+        "category": "Tecnologia",
+        "power_watts": 40,
+        "hours_per_day": 6.0,
+        "days_per_month": 30
+      },
+      {
+        "id": "led_rgb",
+        "name": "Iluminação Ambiente / Fitas LED",
+        "category": "Iluminação",
+        "power_watts": 30,
+        "hours_per_day": 8.0,
+        "days_per_month": 30
+      }
+    ]
+  }
+]

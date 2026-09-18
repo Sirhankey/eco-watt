@@ -1,0 +1,151 @@
+{
+  "cpus": [
+    {
+      "id": "cpu_basic",
+      "name": "Processador Básico / Entrada (ex: Core i3 / Ryzen 3)",
+      "category": "CPU",
+      "tdp_watts": 65,
+      "idle_watts": 15,
+      "typical_load_watts": 45,
+      "gaming_load_watts": 55
+    },
+    {
+      "id": "cpu_mid",
+      "name": "Processador Intermediário (ex: Ryzen 5 5600 / Core i5 13400)",
+      "category": "CPU",
+      "tdp_watts": 65,
+      "idle_watts": 20,
+      "typical_load_watts": 55,
+      "gaming_load_watts": 70
+    },
+    {
+      "id": "cpu_high",
+      "name": "Processador Avançado / Entusiasta (ex: Ryzen 7 7800X3D / Core i7 14700K)",
+      "category": "CPU",
+      "tdp_watts": 125,
+      "idle_watts": 30,
+      "typical_load_watts": 90,
+      "gaming_load_watts": 140
+    }
+  ],
+  "gpus": [
+    {
+      "id": "gpu_integrated",
+      "name": "Vídeo Integrado (iGPU)",
+      "category": "GPU",
+      "tdp_watts": 0,
+      "idle_watts": 2,
+      "typical_load_watts": 10,
+      "gaming_load_watts": 25
+    },
+    {
+      "id": "gpu_entry",
+      "name": "GPU Dedicada de Entrada (ex: GTX 1650 / RX 6400)",
+      "category": "GPU",
+      "tdp_watts": 75,
+      "idle_watts": 8,
+      "typical_load_watts": 30,
+      "gaming_load_watts": 70
+    },
+    {
+      "id": "gpu_mid",
+      "name": "GPU Intermediária Gamer (ex: RTX 4060 / RX 6700)",
+      "category": "GPU",
+      "tdp_watts": 160,
+      "idle_watts": 12,
+      "typical_load_watts": 45,
+      "gaming_load_watts": 140
+    },
+    {
+      "id": "gpu_high",
+      "name": "GPU Alta Performance (ex: RTX 4080 / RX 7900 XTX)",
+      "category": "GPU",
+      "tdp_watts": 320,
+      "idle_watts": 20,
+      "typical_load_watts": 70,
+      "gaming_load_watts": 290
+    }
+  ],
+  "motherboards": [
+    {
+      "id": "mb_standard",
+      "name": "Placa-Mãe Padrão mATX / ATX",
+      "category": "Motherboard",
+      "tdp_watts": 40,
+      "idle_watts": 25,
+      "typical_load_watts": 35,
+      "gaming_load_watts": 45
+    }
+  ],
+  "rams": [
+    {
+      "id": "ram_16gb",
+      "name": "16 GB DDR4/DDR5 (2 módulos)",
+      "category": "RAM",
+      "tdp_watts": 10,
+      "idle_watts": 4,
+      "typical_load_watts": 7,
+      "gaming_load_watts": 9
+    },
+    {
+      "id": "ram_32gb",
+      "name": "32 GB DDR4/DDR5 (2 módulos)",
+      "category": "RAM",
+      "tdp_watts": 15,
+      "idle_watts": 6,
+      "typical_load_watts": 10,
+      "gaming_load_watts": 14
+    }
+  ],
+  "storages": [
+    {
+      "id": "ssd_nvme",
+      "name": "SSD NVMe M.2 1TB",
+      "category": "Storage",
+      "tdp_watts": 7,
+      "idle_watts": 1,
+      "typical_load_watts": 4,
+      "gaming_load_watts": 6
+    },
+    {
+      "id": "hdd_sata",
+      "name": "Disco Rígido HDD 2TB",
+      "category": "Storage",
+      "tdp_watts": 10,
+      "idle_watts": 4,
+      "typical_load_watts": 7,
+      "gaming_load_watts": 8
+    }
+  ],
+  "monitors": [
+    {
+      "id": "mon_24_fhd",
+      "name": "Monitor LED 24'' Full HD",
+      "category": "Monitor",
+      "tdp_watts": 25,
+      "idle_watts": 1,
+      "typical_load_watts": 20,
+      "gaming_load_watts": 24
+    },
+    {
+      "id": "mon_27_qhd",
+      "name": "Monitor Gamer 27'' QHD 144Hz",
+      "category": "Monitor",
+      "tdp_watts": 45,
+      "idle_watts": 1,
+      "typical_load_watts": 35,
+      "gaming_load_watts": 42
+    }
+  ],
+  "peripherals": [
+    {
+      "id": "periph_standard",
+      "name": "Teclado, Mouse e Fans RGB",
+      "category": "Peripherals",
+      "tdp_watts": 20,
+      "idle_watts": 8,
+      "typical_load_watts": 15,
+      "gaming_load_watts": 20
+    }
+  ]
+}
