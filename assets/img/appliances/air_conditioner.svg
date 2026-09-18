@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <rect width="120" height="120" rx="16" fill="#0f172a"/>
+  <!-- Unidade de Ar Condicionado -->
+  <rect x="20" y="35" width="80" height="42" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+  <!-- Display LED digital -->
+  <rect x="76" y="42" width="18" height="10" rx="2" fill="#0f172a"/>
+  <text x="85" y="50" font-family="monospace" font-size="7" fill="#38bdf8" font-weight="bold" text-anchor="middle">23°</text>
+  <!-- Grelha de ventilação frontal -->
+  <line x1="26" y1="62" x2="94" y2="62" stroke="#475569" stroke-width="2"/>
+  <line x1="26" y1="67" x2="94" y2="67" stroke="#475569" stroke-width="2"/>
+  <!-- Fluxo de ar frio saindo -->
+  <path d="M 35 77 Q 30 92 25 100" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-dasharray="2,3"/>
+  <path d="M 60 77 Q 60 92 60 102" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-dasharray="2,3"/>
+  <path d="M 85 77 Q 90 92 95 100" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-dasharray="2,3"/>
+  <!-- Ícone floco de gelo -->
+  <circle cx="34" cy="48" r="4" fill="#0284c7"/>
+</svg>

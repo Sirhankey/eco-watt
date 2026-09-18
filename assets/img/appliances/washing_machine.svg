@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <rect width="120" height="120" rx="16" fill="#0f172a"/>
+  <!-- Gabinete da Lavadora -->
+  <rect x="28" y="24" width="64" height="74" rx="6" fill="#1e293b" stroke="#64748b" stroke-width="2"/>
+  <!-- Painel de comando superior -->
+  <rect x="34" y="30" width="20" height="8" rx="2" fill="#090d16"/>
+  <circle cx="70" cy="34" r="3" fill="#38bdf8"/>
+  <circle cx="80" cy="34" r="3" fill="#10b981"/>
+  <!-- Porta Redonda Frontal (Escotilha) -->
+  <circle cx="60" cy="67" r="23" fill="#090d16" stroke="#475569" stroke-width="3"/>
+  <circle cx="60" cy="67" r="17" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+  <!-- Água e bolhas no tambor -->
+  <path d="M 46 72 Q 60 62 74 72 A 17 17 0 0 1 46 72 Z" fill="#0284c7" opacity="0.6"/>
+  <circle cx="56" cy="68" r="2" fill="#ffffff" opacity="0.7"/>
+  <circle cx="65" cy="73" r="1.5" fill="#ffffff" opacity="0.7"/>
+  <circle cx="62" cy="64" r="1.5" fill="#ffffff" opacity="0.7"/>
+</svg>

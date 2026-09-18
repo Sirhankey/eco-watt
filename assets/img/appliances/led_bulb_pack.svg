@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <rect width="120" height="120" rx="16" fill="#0f172a"/>
+  <!-- Brilho exterior suave -->
+  <circle cx="60" cy="50" r="32" fill="#fbbf24" opacity="0.15"/>
+  <!-- Rosca metálica da lâmpada (Base E27) -->
+  <rect x="52" y="86" width="16" height="5" rx="1.5" fill="#94a3b8"/>
+  <rect x="53" y="93" width="14" height="4" rx="1.5" fill="#64748b"/>
+  <rect x="55" y="98" width="10" height="4" rx="1.5" fill="#475569"/>
+  <!-- Corpo inferior de dissipação plástica/cerâmica -->
+  <path d="M 46 72 L 74 72 L 68 86 L 52 86 Z" fill="#e2e8f0"/>
+  <!-- Bulbo de vidro / cúpula LED -->
+  <path d="M 46 72 C 34 62 34 40 45 28 C 53 20 67 20 75 28 C 86 40 86 62 74 72 Z" fill="#fef08a" stroke="#fbbf24" stroke-width="2"/>
+  <!-- Ícone de filamento LED / folha verde sustentável -->
+  <path d="M 60 40 C 66 45 66 54 60 58 C 54 54 54 45 60 40 Z" fill="#10b981"/>
+  <!-- Raios de iluminação -->
+  <line x1="60" y1="12" x2="60" y2="18" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="30" y1="24" x2="35" y2="29" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="90" y1="24" x2="85" y2="29" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

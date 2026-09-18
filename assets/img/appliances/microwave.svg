@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <rect width="120" height="120" rx="16" fill="#0f172a"/>
+  <!-- Gabinete do micro-ondas -->
+  <rect x="20" y="32" width="80" height="56" rx="6" fill="#1e293b" stroke="#64748b" stroke-width="2"/>
+  <!-- Porta de Vidro -->
+  <rect x="25" y="38" width="48" height="44" rx="3" fill="#0f172a" stroke="#475569" stroke-width="1.5"/>
+  <!-- Prato giratório dentro -->
+  <ellipse cx="49" cy="70" rx="16" ry="4" fill="#334155"/>
+  <!-- Ondas eletromagnéticas -->
+  <path d="M 40 52 Q 49 46 58 52" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 43 58 Q 49 54 55 58" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+  <!-- Painel de controle lateral -->
+  <rect x="78" y="38" width="16" height="12" rx="2" fill="#090d16"/>
+  <text x="86" y="47" font-family="monospace" font-size="7" fill="#10b981" font-weight="bold" text-anchor="middle">01:30</text>
+  <!-- Teclado numérico / botão giratório -->
+  <circle cx="86" cy="62" r="5" fill="#334155" stroke="#64748b" stroke-width="1.5"/>
+  <rect x="80" y="72" width="12" height="4" rx="1" fill="#475569"/>
+</svg>

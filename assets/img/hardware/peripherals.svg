@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <rect width="120" height="120" rx="16" fill="#0f172a"/>
+  <!-- Teclado mecânico -->
+  <rect x="15" y="60" width="60" height="30" rx="4" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5"/>
+  <!-- Teclas -->
+  <rect x="20" y="65" width="8" height="6" rx="1" fill="#334155"/>
+  <rect x="31" y="65" width="8" height="6" rx="1" fill="#334155"/>
+  <rect x="42" y="65" width="8" height="6" rx="1" fill="#334155"/>
+  <rect x="53" y="65" width="16" height="6" rx="1" fill="#38bdf8"/>
+  <rect x="20" y="74" width="12" height="6" rx="1" fill="#334155"/>
+  <rect x="35" y="74" width="22" height="6" rx="1" fill="#64748b"/>
+  <rect x="60" y="74" width="9" height="6" rx="1" fill="#334155"/>
+  <!-- Mouse Gamer RGB -->
+  <path d="M 85 55 C 80 55 80 85 85 92 C 95 92 102 85 100 68 C 98 57 92 55 85 55 Z" fill="#1e293b" stroke="#ec4899" stroke-width="1.5"/>
+  <line x1="91" y1="56" x2="91" y2="70" stroke="#090d16" stroke-width="1"/>
+  <rect x="89" y="62" width="4" height="6" rx="2" fill="#ec4899"/>
+  <!-- Headset gamer no topo -->
+  <path d="M 30 42 A 30 30 0 0 1 90 42" fill="none" stroke="#64748b" stroke-width="4" stroke-linecap="round"/>
+  <rect x="24" y="36" width="10" height="16" rx="5" fill="#38bdf8"/>
+  <rect x="86" y="36" width="10" height="16" rx="5" fill="#38bdf8"/>
+</svg>

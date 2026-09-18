@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <rect width="120" height="120" rx="16" fill="#0f172a"/>
+  <!-- Corpo da Geladeira -->
+  <rect x="35" y="16" width="50" height="88" rx="5" fill="#1e293b" stroke="#64748b" stroke-width="2"/>
+  <!-- Porta Freezer Superior -->
+  <rect x="37" y="18" width="46" height="28" rx="3" fill="#334155"/>
+  <rect x="75" y="32" width="3" height="10" rx="1.5" fill="#94a3b8"/>
+  <!-- Linha divisória -->
+  <line x1="35" y1="48" x2="85" y2="48" stroke="#0f172a" stroke-width="3"/>
+  <!-- Porta Refrigerador Inferior -->
+  <rect x="37" y="50" width="46" height="52" rx="3" fill="#334155"/>
+  <rect x="75" y="54" width="3" height="18" rx="1.5" fill="#94a3b8"/>
+  <!-- Selo Procel verde A na porta -->
+  <rect x="42" y="55" width="10" height="8" rx="1" fill="#10b981"/>
+  <text x="47" y="62" font-family="sans-serif" font-size="6" fill="#ffffff" font-weight="bold" text-anchor="middle">A</text>
+  <!-- Pés -->
+  <rect x="40" y="104" width="6" height="4" rx="1" fill="#475569"/>
+  <rect x="74" y="104" width="6" height="4" rx="1" fill="#475569"/>
+</svg>

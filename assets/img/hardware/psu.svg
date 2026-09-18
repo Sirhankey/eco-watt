@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <rect width="120" height="120" rx="16" fill="#0f172a"/>
+  <!-- Gabinete da Fonte ATX -->
+  <rect x="22" y="28" width="76" height="64" rx="4" fill="#1e293b" stroke="#f59e0b" stroke-width="2"/>
+  <!-- Grade de ventilação 120mm central -->
+  <circle cx="60" cy="58" r="22" fill="#090d16" stroke="#475569" stroke-width="2"/>
+  <circle cx="60" cy="58" r="6" fill="#f59e0b"/>
+  <!-- Selo 80 Plus / Eficiência -->
+  <rect x="26" y="32" width="16" height="12" rx="2" fill="#eab308"/>
+  <text x="34" y="41" font-family="sans-serif" font-size="6" fill="#000000" font-weight="bold" text-anchor="middle">80+</text>
+  <!-- Cabos saindo da lateral -->
+  <path d="M 98 45 C 108 45 106 75 116 75" fill="none" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 98 55 C 106 55 108 80 116 82" fill="none" stroke="#eab308" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 98 65 C 104 65 110 85 116 89" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+</svg>
