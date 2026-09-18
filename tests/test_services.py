@@ -23,6 +23,8 @@ from ecowatt.services.preset_service import (
     load_facts,
     validate_against_real_bill,
 )
+from ecowatt.utils.logging import create_user_id
+from ecowatt.services.analytics_service import is_supabase_configured
 
 
 # --- Tests for Appliance model and Energy Calculator ---
@@ -166,3 +168,17 @@ def test_bill_validation():
 def test_facts_loading():
     facts = load_facts()
     assert len(facts) >= 5
+
+
+def test_user_id_is_stable_and_pseudonymous():
+    first_id = create_user_id("Ana Silva", "8A")
+    same_identity_id = create_user_id(" ana silva ", "8a")
+    different_identity_id = create_user_id("Ana Silva", "8B")
+
+    assert first_id == same_identity_id
+    assert first_id != different_identity_id
+    assert len(first_id) == 16
+
+
+def test_supabase_is_optional():
+    assert isinstance(is_supabase_configured(), bool)

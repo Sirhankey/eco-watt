@@ -1,6 +1,7 @@
 """Comparador direto entre dois aparelhos elétricos."""
 import streamlit as st
 from ecowatt.utils.session import init_session_state
+from ecowatt.utils.logging import track_event, track_event_on_change
 from ecowatt.models.appliance import Appliance
 from ecowatt.services.comparison_service import compare_appliances
 from ecowatt.components.cards import render_metric_card, render_cost_card, render_header, render_did_you_know, render_warning_badge
@@ -8,6 +9,7 @@ from ecowatt.components.charts import plot_comparison_bar_chart
 
 st.set_page_config(page_title="Comparador — EcoWatt", page_icon="🔄", layout="wide")
 init_session_state()
+track_event("page_view", page="comparison")
 
 render_header(
     title="Comparador de Aparelhos",
@@ -89,6 +91,14 @@ app_a = Appliance(id="a", name=name_a, power_watts=power_a, hours_per_day=hours_
 app_b = Appliance(id="b", name=name_b, power_watts=power_b, hours_per_day=hours_b, days_per_month=days_b)
 
 res = compare_appliances(app_a, app_b, tariff)
+track_event_on_change(
+    "comparison_event_signature",
+    "comparison_completed",
+    appliance_a=name_a,
+    appliance_b=name_b,
+    power_a_watts=power_a,
+    power_b_watts=power_b,
+)
 
 st.divider()
 st.markdown("### 🎯 Veredito e Diferença de Custos")

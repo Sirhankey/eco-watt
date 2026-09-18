@@ -1,5 +1,6 @@
 """Modo Apresentação — Demonstração simplificada de 30 segundos para feira de ciências ou sala de aula."""
 import streamlit as st
+from ecowatt.utils.logging import track_event
 from ecowatt.utils.session import init_session_state
 from ecowatt.services.energy_calculator import calculate_monthly_kwh
 from ecowatt.services.cost_calculator import calculate_cost
@@ -7,6 +8,7 @@ from ecowatt.components.cards import render_metric_card, render_cost_card
 
 st.set_page_config(page_title="Modo Apresentação — EcoWatt", page_icon="🎤", layout="centered")
 init_session_state()
+track_event("page_view", page="presentation")
 
 # Layout focado e de alto impacto visual para projetores e telas
 st.markdown(

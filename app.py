@@ -2,6 +2,7 @@
 import streamlit as st
 import random
 from ecowatt.utils.session import init_session_state
+from ecowatt.utils.logging import track_event
 from ecowatt.services.energy_calculator import calculate_total_household_consumption
 from ecowatt.services.cost_calculator import calculate_cost
 from ecowatt.services.preset_service import load_facts
@@ -16,6 +17,7 @@ st.set_page_config(
 )
 
 init_session_state()
+track_event("page_view", page="dashboard")
 
 # Sidebar: Configuração global rápida
 with st.sidebar:

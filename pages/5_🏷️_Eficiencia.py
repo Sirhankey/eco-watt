@@ -1,10 +1,12 @@
 """Página educativa de eficiência energética, conceitos de física e leitura de etiquetas."""
 import streamlit as st
+from ecowatt.utils.logging import track_event
 from ecowatt.utils.session import init_session_state
 from ecowatt.components.cards import render_header, render_did_you_know, render_warning_badge
 
 st.set_page_config(page_title="Eficiência Energética — EcoWatt", page_icon="🏷️", layout="wide")
 init_session_state()
+track_event("page_view", page="efficiency")
 
 render_header(
     title="Entenda a Eficiência Energética",

@@ -3,6 +3,7 @@ import uuid
 import streamlit as st
 import plotly.express as px
 from ecowatt.utils.session import init_session_state
+from ecowatt.utils.logging import track_event, track_event_on_change
 from ecowatt.models.appliance import Appliance
 from ecowatt.models.pc_component import PCComponent, PCUsageProfile
 from ecowatt.services.pc_energy_service import (
@@ -13,6 +14,7 @@ from ecowatt.components.cards import render_metric_card, render_cost_card, rende
 
 st.set_page_config(page_title="PC Builder — EcoWatt", page_icon="🖥️", layout="wide")
 init_session_state()
+track_event("page_view", page="pc_builder")
 
 render_header(
     title="PC Energy Builder",
@@ -149,6 +151,18 @@ with tab_builder:
         psu_efficiency=psu_eff,
         tariff=tariff,
     )
+    track_event_on_change(
+        "pc_builder_event_signature",
+        "pc_builder_calculated",
+        cpu=selected_cpu.name,
+        gpu=selected_gpu.name,
+        ram=selected_ram.name,
+        storage=selected_storage.name,
+        monitor=selected_mon.name,
+        psu_efficiency=psu_eff,
+        active_hours=active_sum,
+        days_per_month=days_pc,
+    )
 
     st.divider()
     st.markdown("### 📊 Estimativa de Consumo e Impacto Financeiro")
@@ -203,6 +217,7 @@ with tab_builder:
             )
             st.session_state.appliances.append(pc_item)
             st.session_state.quick_add_notification = f"🎉 Computador PC Builder ({round(avg_w)} W, {act_h:.1f}h/dia) adicionado ao cômodo '{pc_dest_room}'!"
+            track_event("pc_added_to_home")
             st.success(f"Computador adicionado ao cômodo '{pc_dest_room}' da sua casa com sucesso!")
 
     # Gráfico de carga por componente em jogos

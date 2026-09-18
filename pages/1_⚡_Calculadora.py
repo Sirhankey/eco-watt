@@ -1,6 +1,7 @@
 """Calculadora de consumo individual de aparelhos."""
 import streamlit as st
 from ecowatt.utils.session import init_session_state
+from ecowatt.utils.logging import track_event, track_event_on_change
 from ecowatt.services.energy_calculator import calculate_daily_kwh, calculate_monthly_kwh, calculate_annual_kwh
 from ecowatt.services.cost_calculator import project_costs
 from ecowatt.services.preset_service import load_default_appliances
@@ -9,6 +10,7 @@ from ecowatt.components.charts import plot_cost_evolution_timeline
 
 st.set_page_config(page_title="Calculadora — EcoWatt", page_icon="⚡", layout="wide")
 init_session_state()
+track_event("page_view", page="calculator")
 
 render_header(
     title="Calculadora de Consumo e Custo",
@@ -105,6 +107,14 @@ daily_kwh = calculate_daily_kwh(power, hours)
 monthly_kwh = calculate_monthly_kwh(power, hours, days)
 annual_kwh = calculate_annual_kwh(monthly_kwh)
 costs = project_costs(daily_kwh, monthly_kwh, annual_kwh, tariff)
+track_event_on_change(
+    "calculator_event_signature",
+    "calculator_completed",
+    appliance_name=name,
+    power_watts=power,
+    hours_per_day=hours,
+    days_per_month=days,
+)
 
 with col_res:
     st.markdown("### 📊 Resultado do Cálculo")

@@ -2,6 +2,7 @@
 import streamlit as st
 import uuid
 from ecowatt.utils.session import init_session_state, reset_to_preset
+from ecowatt.utils.logging import track_event, track_event_on_change
 from ecowatt.models.appliance import Appliance
 from ecowatt.services.energy_calculator import calculate_total_household_consumption
 from ecowatt.services.cost_calculator import calculate_cost
@@ -18,6 +19,7 @@ from ecowatt.components.charts import (
 
 st.set_page_config(page_title="Minha Casa — EcoWatt", page_icon="🏠", layout="wide")
 init_session_state()
+track_event("page_view", page="home_simulator")
 
 # CSS responsivo para botões de ação e cards no mobile e desktop
 st.markdown(
@@ -98,6 +100,7 @@ with col_preset:
                 if st.button(f"📥 Aplicar '{p['name']}'"):
                     reset_to_preset(p["id"])
                     st.session_state.family_name = f"Casa ({p['name'].split('(')[0].strip()})"
+                    track_event("home_preset_applied", preset_id=p["id"])
                     st.rerun()
 
 with col_tariff:
@@ -139,6 +142,7 @@ with tab_rooms:
             clean_name = new_room_name.strip()
             if clean_name and clean_name not in st.session_state.rooms:
                 st.session_state.rooms.append(clean_name)
+                track_event("room_added", room_count=len(st.session_state.rooms))
                 st.success(f"Cômodo '{clean_name}' cadastrado com sucesso!")
                 st.rerun()
             elif clean_name in st.session_state.rooms:
@@ -165,6 +169,7 @@ with tab_rooms:
                 a.category = "Geral"
         if "Geral" not in st.session_state.rooms:
             st.session_state.rooms.append("Geral")
+        track_event("room_removed", room_count=len(st.session_state.rooms))
         st.rerun()
 
 with tab_quick_add:
@@ -208,6 +213,7 @@ with tab_quick_add:
                             description=c.description,
                         )
                     )
+                    track_event("appliance_added_quick", appliance_id=c.id)
                     st.session_state.quick_add_notification = f"✅ **{c.name}** adicionado com sucesso ao cômodo **{quick_dest_room}**! Total na casa: {len(st.session_state.appliances)} aparelhos."
                     st.rerun()
 
@@ -238,6 +244,7 @@ with tab_custom_add:
         )
         st.session_state.appliances.append(new_app)
         st.session_state.active_preset_name = "Personalizado"
+        track_event("appliance_added_custom", power_watts=new_power, hours_per_day=new_hours, days_per_month=new_days)
         st.session_state.quick_add_notification = f"✅ **{new_name}** adicionado com sucesso ao cômodo **{new_cat}**!"
         st.success(f"'{new_name}' adicionado com sucesso ao cômodo '{new_cat}'!")
         st.rerun()
@@ -274,6 +281,7 @@ with tab_share:
             data=json_str,
             file_name=f"{st.session_state.get('family_name', 'casa').replace(' ', '_').lower()}.json",
             mime="application/json",
+            on_click=lambda: track_event("inventory_exported"),
         )
         st.text_area("Pré-visualização do JSON:", json_str, height=160)
 
@@ -299,6 +307,7 @@ with tab_share:
                         )
                         for item in loaded.get("appliances", [])
                     ]
+                    track_event("inventory_imported", appliance_count=len(st.session_state.appliances), room_count=len(st.session_state.rooms))
                     st.session_state.quick_add_notification = "🏠 Inventário residencial e cômodos importados com sucesso!"
                     st.success("Casa importada com sucesso!")
                     st.rerun()
@@ -340,6 +349,7 @@ with tab_inventory:
                 if st.button("🗑️ Sim, excluir", type="primary", use_container_width=True):
                     if appliance_to_delete in st.session_state.appliances:
                         st.session_state.appliances.remove(appliance_to_delete)
+                    track_event("appliance_deleted", appliance_count=len(st.session_state.appliances))
                     st.session_state.appliance_to_delete_id = None
                     st.rerun()
             with c_no:
@@ -373,6 +383,7 @@ with tab_inventory:
                             target_app.power_watts = ed_power
                             target_app.hours_per_day = ed_hours
                             target_app.days_per_month = ed_days
+                            track_event("appliance_edited", appliance_count=len(st.session_state.appliances))
                             st.session_state.editing_appliance_id = None
                             st.success(f"Aparelho '{ed_name}' atualizado com sucesso!")
                             st.rerun()
@@ -594,6 +605,13 @@ with tab_validate:
         )
 
     val_res = validate_against_real_bill(sim_kwh, real_val, st.session_state.tariff)
+    track_event_on_change(
+        "bill_validation_event_signature",
+        "real_bill_validated",
+        simulated_monthly_kwh=sim_kwh,
+        real_bill_reais=real_val,
+        verdict=val_res["verdict"],
+    )
 
     st.markdown(
         f"<div style='background: rgba(14, 165, 233, 0.1); border-left: 4px solid #38bdf8; padding: 15px; border-radius: 8px; margin: 15px 0;'>"
