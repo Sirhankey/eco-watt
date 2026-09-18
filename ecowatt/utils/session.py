@@ -107,11 +107,26 @@ def init_session_state():
 def _render_feedback_form() -> None:
     """Render the optional end-of-visit survey in the shared sidebar."""
     st.sidebar.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] [data-testid="stSidebarNav"] {
+            order: 2;
+        }
+        section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+            order: 1;
+        }
+        section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div {
+            gap: 0.45rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.sidebar.markdown(
         f"**{st.session_state.user_name}**  \n"
         f"<span style='color: #94a3b8; font-size: 0.85rem;'>Perfil: {st.session_state.role}</span>",
         unsafe_allow_html=True,
     )
-    st.sidebar.divider()
 
     if st.session_state.get("feedback_submitted", False):
         st.sidebar.success("Avaliação registrada. Obrigado!")
