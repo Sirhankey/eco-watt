@@ -1,0 +1,1 @@
+"""EcoWatt tests package."""
