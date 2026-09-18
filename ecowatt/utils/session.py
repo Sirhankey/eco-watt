@@ -11,15 +11,15 @@ from ecowatt.utils.logging import create_user_id, track_event
 def init_session_state():
     """Initializes standard state variables in st.session_state if not present."""
     if "user_id" not in st.session_state:
+        role = st.selectbox(
+            "Perfil:",
+            ["Aluno", "Professor", "Responsável", "Convidado"],
+            key="role_input",
+        )
         with st.form("user_identification"):
             st.markdown("### Identificação da sessão")
             st.caption("Responda para registrar sua participação na feira de ciências.")
             user_name = st.text_input("Nome:", key="user_name_input")
-            role = st.selectbox(
-                "Perfil:",
-                ["Aluno", "Professor", "Responsável", "Convidado"],
-                key="role_input",
-            )
             age_group = st.selectbox(
                 "Faixa etária:",
                 ["Até 10", "11–14", "15–17", "18–24", "25–39", "40+", "Prefiro não responder"],
