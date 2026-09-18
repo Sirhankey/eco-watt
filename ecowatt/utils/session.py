@@ -135,10 +135,10 @@ def _render_feedback_form() -> None:
     with st.sidebar.expander("⭐ Avaliar experiência", expanded=False):
         st.caption("Preencha quando terminar de explorar o aplicativo.")
         with st.form("experience_feedback"):
-            rating = st.radio(
+            rating = st.select_slider(
                 "Como você avalia a experiência?",
-                ["⭐", "⭐⭐", "⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐⭐"],
-                horizontal=True,
+                options=[1, 2, 3, 4, 5],
+                format_func=lambda value: "⭐" * value,
             )
             knew_kwh = st.radio(
                 "Você já sabia o que era kWh antes de usar o aplicativo?",
@@ -161,7 +161,7 @@ def _render_feedback_form() -> None:
         if submitted:
             track_event(
                 "experience_feedback_submitted",
-                rating=rating.count("⭐"),
+                rating=rating,
                 knew_kwh=knew_kwh,
                 helped_bill=helped_bill,
                 main_interest=main_interest,
