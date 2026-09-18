@@ -49,6 +49,7 @@ def init_session_state():
         st.session_state.age_group = age_group
         st.session_state.gender = gender
         track_event("user_identified", role=role, age_group=age_group, gender=gender)
+        st.rerun()
 
     is_new_session = "analytics_session_started" not in st.session_state
     if is_new_session:
@@ -105,6 +106,13 @@ def init_session_state():
 
 def _render_feedback_form() -> None:
     """Render the optional end-of-visit survey in the shared sidebar."""
+    st.sidebar.markdown(
+        f"**{st.session_state.user_name}**  \n"
+        f"<span style='color: #94a3b8; font-size: 0.85rem;'>Perfil: {st.session_state.role}</span>",
+        unsafe_allow_html=True,
+    )
+    st.sidebar.divider()
+
     if st.session_state.get("feedback_submitted", False):
         st.sidebar.success("Avaliação registrada. Obrigado!")
         return
