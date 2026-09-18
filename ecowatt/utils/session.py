@@ -30,11 +30,10 @@ def init_session_state():
                 ["Mulher", "Homem", "Não binário", "Outro", "Prefiro não responder"],
                 key="gender_input",
             )
-            class_group = st.text_input(
-                "Turma:" if role == "Aluno" else "Turma (opcional):",
-                value="" if role == "Aluno" else "N/A",
-                key="class_group_input",
-            )
+            if role == "Aluno":
+                class_group = st.text_input("Turma:", key="class_group_input")
+            else:
+                class_group = "N/A"
             submitted = st.form_submit_button("Entrar", type="primary", use_container_width=True)
 
         if not submitted:
