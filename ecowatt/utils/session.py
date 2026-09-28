@@ -171,22 +171,24 @@ def _require_participant_profile(service: ParticipantAuthService) -> None:
     participant_id = st.session_state.participant_id
     st.title("Complete seu perfil")
     st.caption("Preencha estas informações uma vez para continuar para as telas do EcoWatt.")
+    participant_role = st.selectbox(
+        "Perfil",
+        PARTICIPANT_ROLES,
+        key=f"profile_role_{participant_id}",
+    )
     with st.form(f"participant_profile_{participant_id}"):
         full_name = st.text_input(
             "Nome completo",
             max_chars=120,
             key=f"profile_full_name_{participant_id}",
         )
-        participant_role = st.selectbox(
-            "Perfil",
-            PARTICIPANT_ROLES,
-            key=f"profile_role_{participant_id}",
-        )
-        class_group = st.text_input(
-            "Turma (obrigatória para alunos)",
-            max_chars=40,
-            key=f"profile_class_group_{participant_id}",
-        )
+        class_group = ""
+        if participant_role == "Aluno":
+            class_group = st.text_input(
+                "Turma (obrigatória para alunos)",
+                max_chars=40,
+                key=f"profile_class_group_{participant_id}",
+            )
         age_group = st.selectbox(
             "Faixa etária",
             AGE_GROUP_OPTIONS,

@@ -6,3 +6,6 @@ venv/
 env/
 .env
 .streamlit/secrets.toml
+/ecowatt/node_modules/
+/ecowatt/package.json
+/ecowatt/package-lock.json
