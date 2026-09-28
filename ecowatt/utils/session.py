@@ -7,8 +7,11 @@ from streamlit_cookies_controller import CookieController
 from ecowatt.services.preset_service import convert_preset_to_appliances
 from ecowatt.services.catalog_repository import load_official_appliances, load_official_presets
 from ecowatt.services.participant_auth import (
+    AGE_GROUP_OPTIONS,
     AuthStorageUnavailable,
+    GENDER_OPTIONS,
     LoginRateLimited,
+    PARTICIPANT_ROLES,
     ParticipantAuthService,
     UsernameAlreadyTaken,
     normalize_username,
@@ -29,6 +32,13 @@ def _set_authenticated_participant(participant) -> None:
     st.session_state.auth_session_token = participant.session_token
     st.session_state.auth_expires_at = participant.expires_at.isoformat()
     st.session_state.must_change_password = participant.must_change_password
+    st.session_state.full_name = participant.full_name
+    st.session_state.participant_role = participant.participant_role
+    st.session_state.role = participant.participant_role
+    st.session_state.class_group = participant.class_group
+    st.session_state.age_group = participant.age_group
+    st.session_state.gender = participant.gender
+    st.session_state.profile_complete = participant.profile_complete
 
 
 def _auth_cookie_value(controller: CookieController) -> str | None:
@@ -49,6 +59,13 @@ def _remove_auth_cookie(controller: CookieController) -> None:
     st.session_state.pop("username", None)
     st.session_state.pop("user_name", None)
     st.session_state.pop("must_change_password", None)
+    st.session_state.pop("full_name", None)
+    st.session_state.pop("participant_role", None)
+    st.session_state.pop("role", None)
+    st.session_state.pop("class_group", None)
+    st.session_state.pop("age_group", None)
+    st.session_state.pop("gender", None)
+    st.session_state.pop("profile_complete", None)
 
 
 def _render_authentication(controller: CookieController, service: ParticipantAuthService) -> None:
@@ -147,6 +164,62 @@ def _require_password_change(service: ParticipantAuthService, controller: Cookie
     st.stop()
 
 
+def _require_participant_profile(service: ParticipantAuthService) -> None:
+    if st.session_state.get("profile_complete"):
+        return
+
+    participant_id = st.session_state.participant_id
+    st.title("Complete seu perfil")
+    st.caption("Preencha estas informações uma vez para continuar para as telas do EcoWatt.")
+    with st.form(f"participant_profile_{participant_id}"):
+        full_name = st.text_input(
+            "Nome completo",
+            max_chars=120,
+            key=f"profile_full_name_{participant_id}",
+        )
+        participant_role = st.selectbox(
+            "Perfil",
+            PARTICIPANT_ROLES,
+            key=f"profile_role_{participant_id}",
+        )
+        class_group = st.text_input(
+            "Turma (obrigatória para alunos)",
+            max_chars=40,
+            key=f"profile_class_group_{participant_id}",
+        )
+        age_group = st.selectbox(
+            "Faixa etária",
+            AGE_GROUP_OPTIONS,
+            key=f"profile_age_group_{participant_id}",
+        )
+        gender = st.selectbox(
+            "Gênero",
+            GENDER_OPTIONS,
+            key=f"profile_gender_{participant_id}",
+        )
+        submitted = st.form_submit_button("Salvar perfil", type="primary", use_container_width=True)
+
+    if submitted:
+        try:
+            service.complete_profile(
+                participant_id,
+                full_name,
+                participant_role,
+                class_group,
+                age_group,
+                gender,
+            )
+            participant = service.restore(st.session_state.auth_session_token)
+            if participant is None:
+                raise AuthStorageUnavailable("A sessão expirou. Entre novamente para continuar.")
+            _set_authenticated_participant(participant)
+            track_event("participant_profile_completed")
+            st.rerun()
+        except (ValueError, AuthStorageUnavailable) as exc:
+            st.error(str(exc))
+    st.stop()
+
+
 def init_session_state():
     """Initializes standard state variables in st.session_state if not present."""
     if not feature_enabled("participant_auth", True):
@@ -191,6 +264,8 @@ def init_session_state():
 
     if st.session_state.get("must_change_password"):
         _require_password_change(service, cookie_controller)
+
+    _require_participant_profile(service)
 
     is_new_session = "analytics_session_started" not in st.session_state
     if is_new_session:
@@ -259,7 +334,10 @@ def init_session_state():
         f"<strong>{st.session_state.username}</strong></div>",
         unsafe_allow_html=True,
     )
-    st.sidebar.caption("Participante")
+    profile_caption = st.session_state.full_name or "Perfil pendente"
+    if st.session_state.get("participant_role"):
+        profile_caption += f" · {st.session_state.participant_role}"
+    st.sidebar.caption(profile_caption)
     if st.sidebar.button("Sair", key="participant_logout"):
         try:
             service.logout(st.session_state.auth_session_token)

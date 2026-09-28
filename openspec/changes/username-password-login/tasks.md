@@ -13,6 +13,7 @@
 - [x] 2.4 Adicionar vínculo `participant_id` aos registros analíticos preservando o identificador independente da sessão de visita.
 - [x] 2.5 Configurar constraints, índices, cascade/retention e políticas que neguem acesso anônimo a credenciais, sessões e dados privados.
 - [x] 2.6 Validar aplicação sequencial das migrations em banco Supabase local limpo, incluindo as estruturas da change anterior.
+- [x] 2.7 Criar migration aditiva para perfil do participante com validação de papel e turma condicional.
 
 ## 3. Serviço de autenticação
 
@@ -22,6 +23,7 @@
 - [x] 3.4 Implementar tokens de sessão aleatórios, persistindo apenas hashes e validando expiração/revogação.
 - [x] 3.5 Implementar logout, troca obrigatória da senha temporária e limites de tentativas/frequência de login.
 - [x] 3.6 Adicionar testes unitários de cadastro, username case-insensitive, concorrência, login válido/inválido, expiração, revogação e troca de senha.
+- [x] 3.7 Validar os campos de perfil e persistir o formulário completo na conta autenticada.
 
 ## 4. Fluxo Streamlit e identidade compartilhada
 
@@ -31,6 +33,7 @@
 - [x] 4.4 Remover identidade autenticada de query parameters e garantir que senhas/tokens não apareçam em URLs ou logs.
 - [x] 4.5 Disponibilizar logout e exibir o username autenticado sem expor credenciais.
 - [ ] 4.6 Atualizar testes de sessão e verificar o fluxo em páginas diferentes do aplicativo.
+- [ ] 4.7 Exigir o perfil após login em todas as páginas e restaurar o estado completo sem solicitar novo preenchimento.
 
 ## 5. Vincular dados e persistir o quiz
 
@@ -54,3 +57,4 @@
 - [ ] 7.2 Fazer ensaio manual de cadastro, login, F5, nova aba, logout, reset de senha e retomada do quiz.
 - [x] 7.3 Confirmar que modo offline/fallback não comunica falsamente que conta ou tentativa foram persistidas.
 - [x] 7.4 Ativar a autenticação por configuração/flag e documentar rollback sem restaurar identidade em query parameters.
+- [ ] 7.5 Aplicar a migration de perfil em local e produção, validar schema e ensaiar o fluxo de perfil no app publicado.

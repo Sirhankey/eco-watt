@@ -55,6 +55,10 @@ class FakeParticipantRepository:
         participant["password_hash"] = password_hash
         participant["must_change_password"] = False
 
+    def update_profile(self, participant_id, profile):
+        participant = self.get_participant(participant_id)
+        participant.update(profile)
+
 
 def test_username_normalization_and_validation():
     assert normalize_username("  Ana.Silva_7 ") == "ana.silva_7"
@@ -99,6 +103,56 @@ def test_six_character_password_is_accepted():
     participant = service.register("aluno-04", "abc123")
 
     assert service.login("aluno-04", "abc123") is not None
+
+
+def test_profile_is_required_and_persisted_for_later_logins():
+    repository = FakeParticipantRepository()
+    service = ParticipantAuthService(repository)
+    account = service.register("perfil-01", "senha-segura")
+
+    assert not account.profile_complete
+    with pytest.raises(ValueError, match="turma"):
+        service.complete_profile(
+            account.participant_id,
+            "Ana Silva",
+            "Aluno",
+            " ",
+            "11–14",
+            "Prefiro não responder",
+        )
+
+    service.complete_profile(
+        account.participant_id,
+        " Ana Silva ",
+        "Aluno",
+        " 8A ",
+        "11–14",
+        "Mulher",
+    )
+    logged_in = service.login("perfil-01", "senha-segura")
+
+    assert logged_in is not None
+    assert logged_in.profile_complete
+    assert logged_in.full_name == "Ana Silva"
+    assert logged_in.class_group == "8A"
+
+
+def test_non_student_profile_does_not_require_or_store_class_group():
+    repository = FakeParticipantRepository()
+    service = ParticipantAuthService(repository)
+    account = service.register("perfil-02", "senha-segura")
+
+    service.complete_profile(
+        account.participant_id,
+        "Carlos Silva",
+        "Professor",
+        "Turma que deve ser descartada",
+        "40+",
+        "Homem",
+    )
+
+    saved = repository.get_participant(account.participant_id)
+    assert saved["class_group"] is None
 
 
 def test_malformed_username_cannot_authenticate_a_valid_reserved_name():

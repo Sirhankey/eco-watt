@@ -18,7 +18,7 @@ Os timestamps são armazenados como `timestamptz` em UTC. A exibição do evento
 
 ### Contas e sessões
 
-Após aplicar as migrations, habilite o quiz (`event_quizzes.enabled = true`) para o evento correspondente. A conta exige username único e senha de 6 a 128 caracteres; o login persiste por 30 dias no mesmo navegador e não usa e-mail. O cookie é `Secure` e `SameSite=Strict`; o componente atual não fornece `HttpOnly`, por isso não renderize conteúdo de participante como HTML não sanitizado.
+Após aplicar as migrations, habilite o quiz (`event_quizzes.enabled = true`) para o evento correspondente. A conta exige username único e senha de 6 a 128 caracteres; após o primeiro login, o participante preenche uma vez nome completo, papel, turma (se aluno), faixa etária e gênero. O login persiste por 30 dias no mesmo navegador e não usa e-mail. O cookie é `Secure` e `SameSite=Strict`; o componente atual não fornece `HttpOnly`, por isso não renderize conteúdo de participante como HTML não sanitizado.
 
 O cadastro/login exige `SUPABASE_SERVICE_ROLE_KEY` no servidor. Sem backend privado, a aplicação bloqueia a autenticação e não simula que a tentativa foi persistida.
 

@@ -30,6 +30,12 @@ Criar uma tabela privada de participantes com UUID interno, nome de usuário nor
 
 Alternativas consideradas: manter a identidade derivada de nome/turma não autentica o participante nem impede colisões; exigir e-mail/Supabase Auth contraria o fluxo sem e-mail definido para a feira.
 
+### 1.1 Perfil obrigatório após o primeiro login
+
+Manter `full_name`, `participant_role`, `class_group`, `age_group` e `gender` na mesma linha da conta participante. Depois de autenticar e trocar uma senha temporária, se necessário, a inicialização compartilhada consulta o estado do perfil e bloqueia a página atual até ele estar completo. A turma é obrigatória para `Aluno` e fica nula para os demais papéis. O perfil é persistido no banco, não no estado do navegador, portanto não volta a ser solicitado após logout, F5 ou troca de aba.
+
+Alternativa considerada: guardar o perfil apenas em `st.session_state` repetiria o formulário após F5 e impediria o uso consistente dos dados em outras páginas.
+
 ### 2. Senha e reset administrativo
 
 Armazenar somente hashes produzidos por Argon2id (ou biblioteca mantida equivalente), com parâmetros recomendados pela biblioteca. O reset será um script de operador executado no servidor, que recebe o nome de usuário e define uma senha temporária configurada para a feira, armazenando apenas seu hash e marcando a conta para troca no próximo login. A senha temporária não será impressa em logs nem passada como argumento visível de processo.
@@ -79,6 +85,7 @@ Fornecer procedimento administrativo de encerramento que revogue sessões e remo
 - Uma tentativa por participante, por quiz e evento; cada `quiz_id` identifica o quiz/evento no modelo atual.
 - Após a apresentação, apagar credenciais e sessões; manter resultados pseudonimizados até a equipe solicitar sua limpeza.
 - Username ASCII de 3 a 24 caracteres (`a-z`, `0-9`, ponto, sublinhado ou hífen), normalizado sem diferenciar maiúsculas/minúsculas; senha de 6 a 128 caracteres.
+- Perfil complementar obrigatório uma vez após autenticação; somente alunos precisam informar turma.
 
 ## Identity Data Map
 

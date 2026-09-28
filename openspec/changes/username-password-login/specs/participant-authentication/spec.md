@@ -15,6 +15,29 @@ O sistema SHALL permitir que um participante crie uma conta usando nome de usuá
 - **WHEN** duas requisições tentam cadastrar simultaneamente o mesmo nome normalizado
 - **THEN** no máximo uma conta é criada e a outra recebe uma resposta de nome indisponível
 
+### Requirement: Perfil completo obrigatório antes de acessar páginas
+O sistema SHALL exigir, após o primeiro login, nome completo, papel, faixa etária e gênero, além da turma quando o papel for aluno, antes de liberar qualquer página funcional. O perfil SHALL ser persistido junto à conta e não SHALL ser solicitado novamente enquanto esses dados permanecerem completos.
+
+#### Scenario: Conta sem perfil completo
+- **WHEN** o participante autentica uma conta cujo perfil ainda não foi preenchido
+- **THEN** o sistema mostra o formulário de perfil e bloqueia a página solicitada até o salvamento válido
+
+#### Scenario: Aluno informa turma
+- **WHEN** o participante seleciona o papel Aluno e envia o perfil sem turma
+- **THEN** o sistema rejeita o formulário e mantém bloqueado o acesso às páginas
+
+#### Scenario: Perfil salvo para aluno
+- **WHEN** o aluno informa nome completo, turma, faixa etária e gênero válidos
+- **THEN** o sistema persiste os campos na conta e libera a página solicitada
+
+#### Scenario: Perfil de não aluno
+- **WHEN** professor, responsável ou convidado preenche o perfil sem turma
+- **THEN** o sistema persiste os demais campos com turma nula e libera a página solicitada
+
+#### Scenario: Perfil já completo em novo login
+- **WHEN** o participante autenticado retorna em outra sessão ou após atualizar a página e seu perfil está completo no banco
+- **THEN** o sistema carrega o perfil existente sem exibir novamente o formulário
+
 ### Requirement: Login sem e-mail
 O sistema SHALL autenticar participantes por nome de usuário e senha e SHALL validar credenciais sem expor se uma senha armazenada está correta por comparação insegura.
 

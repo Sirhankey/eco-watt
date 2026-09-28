@@ -18,6 +18,9 @@ SESSION_TTL = timedelta(days=30)
 USERNAME_PATTERN = re.compile(r"^[a-z0-9._-]{3,24}$")
 PASSWORD_MIN_LENGTH = 6
 PASSWORD_MAX_LENGTH = 128
+PARTICIPANT_ROLES = ("Aluno", "Professor", "Responsável", "Convidado")
+AGE_GROUP_OPTIONS = ("Até 10", "11–14", "15–17", "18–24", "25–39", "40+", "Prefiro não responder")
+GENDER_OPTIONS = ("Mulher", "Homem", "Não binário", "Outro", "Prefiro não responder")
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_WINDOW_SECONDS = 60
 LOGIN_LOCK_SECONDS = 60
@@ -42,6 +45,21 @@ class AuthenticatedParticipant:
     session_token: str
     expires_at: datetime
     must_change_password: bool = False
+    full_name: str | None = None
+    participant_role: str | None = None
+    class_group: str | None = None
+    age_group: str | None = None
+    gender: str | None = None
+
+    @property
+    def profile_complete(self) -> bool:
+        return participant_profile_complete(
+            self.full_name,
+            self.participant_role,
+            self.class_group,
+            self.age_group,
+            self.gender,
+        )
 
 
 @dataclass
@@ -96,6 +114,53 @@ def validate_password(password: str) -> None:
         raise ValueError("A senha deve ter entre 6 e 128 caracteres.")
 
 
+def validate_participant_profile(
+    full_name: str,
+    participant_role: str,
+    class_group: str,
+    age_group: str,
+    gender: str,
+) -> dict[str, str | None]:
+    clean_name = full_name.strip() if isinstance(full_name, str) else ""
+    clean_class = class_group.strip() if isinstance(class_group, str) else ""
+    if not 2 <= len(clean_name) <= 120:
+        raise ValueError("Informe seu nome completo (de 2 a 120 caracteres).")
+    if participant_role not in PARTICIPANT_ROLES:
+        raise ValueError("Selecione um perfil válido.")
+    if participant_role == "Aluno" and not 1 <= len(clean_class) <= 40:
+        raise ValueError("Informe sua turma para continuar.")
+    if participant_role != "Aluno":
+        clean_class = ""
+    if age_group not in AGE_GROUP_OPTIONS:
+        raise ValueError("Selecione uma faixa etária válida.")
+    if gender not in GENDER_OPTIONS:
+        raise ValueError("Selecione uma opção válida de gênero.")
+    return {
+        "full_name": clean_name,
+        "participant_role": participant_role,
+        "class_group": clean_class or None,
+        "age_group": age_group,
+        "gender": gender,
+    }
+
+
+def participant_profile_complete(
+    full_name: str | None,
+    participant_role: str | None,
+    class_group: str | None,
+    age_group: str | None,
+    gender: str | None,
+) -> bool:
+    return bool(
+        isinstance(full_name, str)
+        and full_name.strip()
+        and participant_role in PARTICIPANT_ROLES
+        and (participant_role != "Aluno" or (isinstance(class_group, str) and class_group.strip()))
+        and age_group in AGE_GROUP_OPTIONS
+        and gender in GENDER_OPTIONS
+    )
+
+
 def hash_password(password: str) -> str:
     validate_password(password)
     return PasswordHasher(type=Type.ID).hash(password)
@@ -140,7 +205,7 @@ class SupabaseParticipantRepository:
             "GET",
             "participants",
             filters={
-                "select": "id,username,username_normalized,password_hash,must_change_password",
+                "select": "id,username,username_normalized,password_hash,must_change_password,full_name,participant_role,class_group,age_group,gender",
                 "username_normalized": f"eq.{username_normalized}",
                 "limit": "1",
             },
@@ -201,7 +266,7 @@ class SupabaseParticipantRepository:
             "GET",
             "participants",
             filters={
-                "select": "id,username,must_change_password",
+                "select": "id,username,must_change_password,full_name,participant_role,class_group,age_group,gender",
                 "id": f"eq.{participant_id}",
                 "limit": "1",
             },
@@ -218,6 +283,17 @@ class SupabaseParticipantRepository:
         )
         if status < 200 or status >= 300:
             raise AuthStorageUnavailable("Nao foi possivel atualizar a senha.")
+
+    def update_profile(self, participant_id: str, profile: dict[str, str | None]) -> None:
+        status, _ = self._request(
+            "PATCH",
+            "participants",
+            filters={"id": f"eq.{participant_id}"},
+            payload=profile,
+            prefer="return=minimal",
+        )
+        if status < 200 or status >= 300:
+            raise AuthStorageUnavailable("Nao foi possivel salvar seu perfil.")
 
 
 class ParticipantAuthService:
@@ -282,6 +358,11 @@ class ParticipantAuthService:
             session_token=token,
             expires_at=expires_at,
             must_change_password=bool(participant.get("must_change_password", False)),
+            full_name=participant.get("full_name"),
+            participant_role=participant.get("participant_role"),
+            class_group=participant.get("class_group"),
+            age_group=participant.get("age_group"),
+            gender=participant.get("gender"),
         )
 
     def logout(self, token: str) -> None:
@@ -290,6 +371,18 @@ class ParticipantAuthService:
     def change_password(self, participant_id: str, password: str) -> None:
         validate_password(password)
         self.repository.update_password(participant_id, hash_password(password))
+
+    def complete_profile(
+        self,
+        participant_id: str,
+        full_name: str,
+        participant_role: str,
+        class_group: str,
+        age_group: str,
+        gender: str,
+    ) -> None:
+        profile = validate_participant_profile(full_name, participant_role, class_group, age_group, gender)
+        self.repository.update_profile(participant_id, profile)
 
     def _new_session(self, participant: dict[str, Any]) -> AuthenticatedParticipant:
         now = self.clock()
@@ -302,6 +395,11 @@ class ParticipantAuthService:
             session_token=token,
             expires_at=expires_at,
             must_change_password=bool(participant.get("must_change_password", False)),
+            full_name=participant.get("full_name"),
+            participant_role=participant.get("participant_role"),
+            class_group=participant.get("class_group"),
+            age_group=participant.get("age_group"),
+            gender=participant.get("gender"),
         )
 
 
