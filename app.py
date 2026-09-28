@@ -5,7 +5,7 @@ from ecowatt.utils.session import init_session_state
 from ecowatt.utils.logging import track_event
 from ecowatt.services.energy_calculator import calculate_total_household_consumption
 from ecowatt.services.cost_calculator import calculate_cost
-from ecowatt.services.preset_service import load_facts
+from ecowatt.services.catalog_repository import load_official_facts
 from ecowatt.components.cards import render_metric_card, render_cost_card, render_did_you_know, render_warning_badge
 from ecowatt.components.charts import plot_household_distribution_donut, plot_cost_evolution_timeline
 
@@ -34,7 +34,7 @@ with st.sidebar:
     st.caption("Tarifa editável aplicada em todas as páginas da ferramenta.")
     st.divider()
     st.markdown("### 💡 Dica Rápida")
-    facts = load_facts()
+    facts = load_official_facts()
     if facts:
         fact = facts[0]
         st.info(f"**{fact['title']}**\n\n{fact['fact']}")
@@ -134,8 +134,8 @@ with nav_col1:
         st.markdown(
             """
             <div style="min-height: 110px;">
-                <h4 style="margin: 0 0 8px 0; color: #f8fafc;">⚡ Calculadora de Aparelhos</h4>
-                <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.4; margin: 0;">
+                <h4 style="margin: 0 0 8px 0;">⚡ Calculadora de Aparelhos</h4>
+                <p style="font-size: 0.9rem; line-height: 1.4; margin: 0;">
                     Calcule o consumo exato de qualquer aparelho elétrico informando potência e tempo de uso.
                 </p>
             </div>
@@ -149,8 +149,8 @@ with nav_col2:
         st.markdown(
             """
             <div style="min-height: 110px;">
-                <h4 style="margin: 0 0 8px 0; color: #f8fafc;">🔄 Comparador de Aparelhos</h4>
-                <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.4; margin: 0;">
+                <h4 style="margin: 0 0 8px 0;">🔄 Comparador de Aparelhos</h4>
+                <p style="font-size: 0.9rem; line-height: 1.4; margin: 0;">
                     Coloque dois produtos lado a lado e veja a diferença de consumo e economia na fatura anual.
                 </p>
             </div>
@@ -164,8 +164,8 @@ with nav_col3:
         st.markdown(
             """
             <div style="min-height: 110px;">
-                <h4 style="margin: 0 0 8px 0; color: #f8fafc;">🏠 Simulador Minha Casa</h4>
-                <p style="color: #94a3b8; font-size: 0.9rem; line-height: 1.4; margin: 0;">
+                <h4 style="margin: 0 0 8px 0;">🏠 Simulador Minha Casa</h4>
+                <p style="font-size: 0.9rem; line-height: 1.4; margin: 0;">
                     Monte o inventário da sua casa, identifique os vilões de energia e valide com sua fatura real.
                 </p>
             </div>

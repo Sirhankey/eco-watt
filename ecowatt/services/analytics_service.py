@@ -1,5 +1,6 @@
 """Optional persistence of analytics events in Supabase."""
 import json
+import os
 import urllib.error
 import urllib.request
 from typing import Any
@@ -8,6 +9,9 @@ import streamlit as st
 
 
 def _get_secret(name: str) -> str | None:
+    environment_value = os.getenv(name)
+    if environment_value:
+        return environment_value.strip()
     try:
         value = st.secrets.get(name)
     except Exception:
@@ -16,8 +20,15 @@ def _get_secret(name: str) -> str | None:
 
 
 def is_supabase_configured() -> bool:
-    """Return whether both Supabase secrets are available."""
-    return bool(_get_secret("SUPABASE_URL") and _get_secret("SUPABASE_SERVICE_ROLE_KEY"))
+    """Return whether Supabase URL and a read/write key are available."""
+    return bool(
+        _get_secret("SUPABASE_URL")
+        and (
+            _get_secret("SUPABASE_ANON_KEY")
+            or _get_secret("SUPABASE_KEY")
+            or _get_secret("SUPABASE_SERVICE_ROLE_KEY")
+        )
+    )
 
 
 def save_event(event: dict[str, Any]) -> bool:

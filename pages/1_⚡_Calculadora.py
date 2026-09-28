@@ -4,7 +4,7 @@ from ecowatt.utils.session import init_session_state
 from ecowatt.utils.logging import track_event, track_event_on_change
 from ecowatt.services.energy_calculator import calculate_daily_kwh, calculate_monthly_kwh, calculate_annual_kwh
 from ecowatt.services.cost_calculator import project_costs
-from ecowatt.services.preset_service import load_default_appliances
+from ecowatt.services.catalog_repository import load_official_appliances
 from ecowatt.components.cards import render_metric_card, render_cost_card, render_header, render_did_you_know, render_warning_badge
 from ecowatt.components.charts import plot_cost_evolution_timeline
 
@@ -19,7 +19,7 @@ render_header(
 )
 
 # Catálogo rápido para preenchimento com 1 clique
-default_apps = load_default_appliances()
+default_apps = load_official_appliances()
 app_names = ["(Digitar dados manualmente)"] + [f"{a.name} ({a.power_watts:.0f} W)" for a in default_apps]
 
 selected_template = st.selectbox("Escolher aparelho comum como referência rápida:", app_names)

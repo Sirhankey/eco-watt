@@ -6,15 +6,18 @@ from ecowatt.utils.session import init_session_state
 from ecowatt.utils.logging import track_event, track_event_on_change
 from ecowatt.models.appliance import Appliance
 from ecowatt.models.pc_component import PCComponent, PCUsageProfile
-from ecowatt.services.pc_energy_service import (
-    load_default_pc_components,
-    calculate_pc_energy,
-)
+from ecowatt.services.catalog_repository import load_official_pc_components
+from ecowatt.services.pc_builder_service import calculate_setup, compare_setups
+from ecowatt.utils.features import feature_enabled
 from ecowatt.components.cards import render_metric_card, render_cost_card, render_header, render_did_you_know, render_warning_badge
 
 st.set_page_config(page_title="PC Builder — EcoWatt", page_icon="🖥️", layout="wide")
 init_session_state()
 track_event("page_view", page="pc_builder")
+
+if not feature_enabled("pc_builder_v2", True):
+    st.info("O PC Builder interativo esta temporariamente desativado. O calculo basico permanece disponivel nas outras telas.")
+    st.stop()
 
 render_header(
     title="PC Energy Builder",
@@ -22,7 +25,19 @@ render_header(
     icon="🖥️",
 )
 
-catalog = load_default_pc_components()
+try:
+    catalog = load_official_pc_components()
+except (OSError, ValueError, KeyError) as exc:
+    st.error(f"Nao foi possivel carregar o catalogo de componentes: {exc}")
+    st.stop()
+
+for category, personal_items in st.session_state.get("personal_pc_components", {}).items():
+    catalog[category] = catalog.get(category, []) + personal_items
+if not catalog or any(not catalog.get(category) for category in ("cpus", "gpus", "rams", "storages", "monitors")):
+    st.warning("O catalogo de componentes esta vazio ou incompleto. O modo offline sera restaurado quando os dados estiverem disponiveis.")
+    st.stop()
+
+st.caption("Etapas: componentes → perfil de uso → resultado. O resumo abaixo permanece visivel durante a montagem.")
 
 tab_builder, tab_compare = st.tabs(["🛠️ Montar e Simular Computador", "🎮 Comparar 2 Setups"])
 
@@ -144,12 +159,25 @@ with tab_builder:
 
     # Execução do cálculo
     tariff = float(st.session_state.tariff)
-    pc_result = calculate_pc_energy(
+    pc_result = calculate_setup(
         components=components,
         profile=profile,
         days_per_month=days_pc,
         psu_efficiency=psu_eff,
         tariff=tariff,
+    )
+    st.session_state.pc_builder_summary = {
+        "cpu": selected_cpu.name,
+        "gpu": selected_gpu.name,
+        "ram": selected_ram.name,
+        "storage": selected_storage.name,
+        "monitor": selected_mon.name,
+        "monthly_kwh": pc_result["monthly_kwh"],
+        "monthly_cost": pc_result["monthly_cost"],
+    }
+    st.info(
+        f"Resumo atual: {selected_cpu.name} + {selected_gpu.name} | "
+        f"{pc_result['monthly_kwh']:.1f} kWh/mês | R$ {pc_result['monthly_cost']:.2f}/mês"
     )
     track_event_on_change(
         "pc_builder_event_signature",
@@ -274,9 +302,10 @@ with tab_compare:
 
     prof_gamer = PCUsageProfile(study_office_hours=2, gaming_heavy_hours=4, light_idle_hours=2, standby_off_hours=16)
 
-    res_a = calculate_pc_energy(setup_a_comps, prof_gamer, days_per_month=30, psu_efficiency=0.85, tariff=tariff)
-    res_b = calculate_pc_energy(setup_b_comps, prof_gamer, days_per_month=30, psu_efficiency=0.85, tariff=tariff)
+    res_a = calculate_setup(setup_a_comps, prof_gamer, days_per_month=30, psu_efficiency=0.85, tariff=tariff)
+    res_b = calculate_setup(setup_b_comps, prof_gamer, days_per_month=30, psu_efficiency=0.85, tariff=tariff)
 
+    setup_delta = compare_setups(res_a, res_b)
     diff_kwh = res_b["annual_kwh"] - res_a["annual_kwh"]
     diff_money = res_b["annual_cost"] - res_a["annual_cost"]
 
@@ -318,6 +347,10 @@ with tab_compare:
         </div>
         """,
         unsafe_allow_html=True,
+    )
+    st.caption(
+        f"Diferenca absoluta: {setup_delta['peak_power_watts']:.0f} W de pico, "
+        f"{setup_delta['monthly_kwh']:.1f} kWh/mês e R$ {setup_delta['monthly_cost']:.2f}/mês."
     )
 
 render_warning_badge("A potência real na tomada foi calculada considerando o perfil ponderado de uso e a eficiência da fonte (80 Plus), não sendo uma soma estática de TDP máximo.")

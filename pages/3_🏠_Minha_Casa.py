@@ -6,11 +6,10 @@ from ecowatt.utils.logging import track_event, track_event_on_change
 from ecowatt.models.appliance import Appliance
 from ecowatt.services.energy_calculator import calculate_total_household_consumption
 from ecowatt.services.cost_calculator import calculate_cost
-from ecowatt.services.preset_service import (
-    load_presets,
-    load_default_appliances,
-    validate_against_real_bill,
-)
+from ecowatt.services.preset_service import validate_against_real_bill
+from ecowatt.services.catalog_repository import load_official_appliances, load_official_presets
+from ecowatt.services.personal_preset_service import apply_personal_preset, compare_authorized_presets, save_personal_preset
+from ecowatt.utils.features import feature_enabled
 from ecowatt.components.cards import render_metric_card, render_cost_card, render_header, render_did_you_know, render_warning_badge
 from ecowatt.components.charts import (
     plot_household_distribution_donut,
@@ -78,7 +77,7 @@ render_header(
 )
 
 # 1. Seção de Identificação do Aluno / Família e Presets Didáticos
-presets = load_presets()
+presets = load_official_presets()
 preset_names = [p["name"] for p in presets]
 
 col_fam, col_preset, col_tariff = st.columns([1.2, 1.4, 0.9])
@@ -102,6 +101,15 @@ with col_preset:
                     st.session_state.family_name = f"Casa ({p['name'].split('(')[0].strip()})"
                     track_event("home_preset_applied", preset_id=p["id"])
                     st.rerun()
+    personal_names = [preset["name"] for preset in st.session_state.get("personal_presets", [])]
+    if personal_names:
+        personal_name = st.selectbox("Aplicar preset pessoal:", ["(Nenhum)"] + personal_names)
+        if personal_name != "(Nenhum)" and st.button("📥 Aplicar preset pessoal"):
+            personal = next(preset for preset in st.session_state.personal_presets if preset["name"] == personal_name)
+            st.session_state.appliances = apply_personal_preset(personal)
+            st.session_state.active_preset_name = personal_name
+            track_event("personal_preset_applied", preset_id=personal["id"])
+            st.rerun()
 
 with col_tariff:
     st.markdown("##### ⚙️ Tarifa Elétrica")
@@ -126,7 +134,7 @@ tab_inventory, tab_quick_add, tab_custom_add, tab_rooms, tab_share, tab_validate
     "🧾 Validar Fatura Real",
 ])
 
-catalog = load_default_appliances()
+catalog = load_official_appliances()
 
 with tab_rooms:
     st.markdown("#### 🚪 Gerenciar Cômodos da Casa")
@@ -202,6 +210,16 @@ with tab_quick_add:
                 st.markdown(f"**{c.name}**")
                 st.caption(f"Potência: **{c.power_watts:.0f} W** | Uso: **{c.hours_per_day:.1f}h/dia**")
                 if st.button(f"➕ Adicionar ao {quick_dest_room}", key=f"quick_add_{c.id}"):
+                    duplicate = any(
+                        appliance.name.casefold() == c.name.casefold()
+                        and appliance.category == quick_dest_room
+                        for appliance in st.session_state.appliances
+                    )
+                    if duplicate and not st.session_state.get(f"confirm_duplicate_{c.id}", False):
+                        st.session_state[f"confirm_duplicate_{c.id}"] = False
+                        st.warning("Este aparelho ja existe neste comodo. Marque a confirmacao para adicionar uma segunda unidade.")
+                        st.checkbox("Confirmar segunda unidade", key=f"confirm_duplicate_{c.id}")
+                        st.stop()
                     st.session_state.appliances.append(
                         Appliance(
                             id=str(uuid.uuid4())[:8],
@@ -252,6 +270,36 @@ with tab_custom_add:
 with tab_share:
     st.markdown("#### 💾 Compartilhar ou Guardar Casa em JSON")
     st.caption("Como a aplicação roda em modo local, o aluno pode exportar seu inventário em JSON para entregar ao professor ou carregar o JSON de um colega!")
+
+    if feature_enabled("personal_presets", True):
+        with st.expander("Salvar preset pessoal", expanded=False):
+            preset_name = st.text_input("Nome do cenário:", key="personal_preset_name")
+            preset_visibility = st.selectbox("Visibilidade:", ["private", "event"], format_func=lambda value: "Privado" if value == "private" else "Evento")
+            comparison_consent = st.checkbox("Permitir comparação pseudônima no evento", disabled=preset_visibility == "private")
+            pseudonymous_label = st.text_input("Rótulo pseudônimo:", key="personal_preset_label", disabled=not comparison_consent)
+            if st.button("Salvar preset pessoal", type="primary"):
+                try:
+                    personal = save_personal_preset(
+                    preset_name,
+                    st.session_state.appliances,
+                    float(st.session_state.tariff),
+                    st.session_state.user_id,
+                    comparison_consent,
+                    preset_visibility,
+                    pseudonymous_label,
+                )
+                    st.session_state.personal_presets.append(personal)
+                    track_event("personal_preset_saved", preset_id=personal["id"], monthly_kwh=personal["monthly_kwh"])
+                    st.success("Preset pessoal salvo. O preset oficial permanece somente leitura.")
+                except ValueError as exc:
+                    st.error(str(exc))
+
+    ranking = compare_authorized_presets(st.session_state.get("personal_presets", []))
+    if ranking["lowest"] and ranking["highest"]:
+        st.info(
+            f"Comparação educativa: menor consumo {ranking['lowest']['label']} ({ranking['lowest']['monthly_kwh']:.1f} kWh/mês) | "
+            f"maior consumo {ranking['highest']['label']} ({ranking['highest']['monthly_kwh']:.1f} kWh/mês)."
+        )
 
     import json
 
