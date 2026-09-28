@@ -50,7 +50,7 @@
 
 ## 7. Validação e liberação
 
-- [ ] 7.1 Executar a suíte de testes e validar as migrations/policies no ambiente de staging.
+- [x] 7.1 Executar a suíte de testes e validar as migrations/policies no projeto Supabase vinculado.
 - [ ] 7.2 Fazer ensaio manual de cadastro, login, F5, nova aba, logout, reset de senha e retomada do quiz.
 - [x] 7.3 Confirmar que modo offline/fallback não comunica falsamente que conta ou tentativa foram persistidas.
 - [x] 7.4 Ativar a autenticação por configuração/flag e documentar rollback sem restaurar identidade em query parameters.
