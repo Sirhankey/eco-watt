@@ -26,16 +26,16 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def create_personal_item(store: CatalogStore, owner_user_id: str, kind: str, payload: Dict[str, Any], created_by_name: str | None = None) -> CatalogAppliance | CatalogPCComponent:
+def create_personal_item(store: CatalogStore, participant_id: str, kind: str, payload: Dict[str, Any], created_by_name: str | None = None) -> CatalogAppliance | CatalogPCComponent:
     validated = validate_submission_payload(kind, payload)
-    existing = find_duplicate(store.personal_items.get(owner_user_id, []), validated, kind, owner_user_id)
+    existing = find_duplicate(store.personal_items.get(participant_id, []), validated, kind, participant_id)
     if existing is not None:
-        LOGGER.info("catalog_duplicate kind=%s owner_scope=%s", kind, owner_user_id[:8])
+        LOGGER.info("catalog_duplicate kind=%s owner_scope=%s", kind, participant_id[:8])
         raise ValueError("Este item ja foi criado na sua conta.")
 
     item_id = str(uuid4())
-    item = {**validated, "id": item_id, "owner_user_id": owner_user_id, "created_by_name": created_by_name, "created_at": _now()}
-    store.personal_items.setdefault(owner_user_id, []).append(item)
+    item = {**validated, "id": item_id, "participant_id": participant_id, "created_by_name": created_by_name, "created_at": _now()}
+    store.personal_items.setdefault(participant_id, []).append(item)
     if kind == "appliance":
         return CatalogAppliance(**item)
     if kind == "pc_component":
@@ -43,16 +43,16 @@ def create_personal_item(store: CatalogStore, owner_user_id: str, kind: str, pay
     raise ValueError("Apenas aparelhos e componentes podem ser itens pessoais.")
 
 
-def submit_catalog_item(store: CatalogStore, user_id: str, kind: str, payload: Dict[str, Any], submitted_by_name: str | None = None) -> CatalogSubmission:
+def submit_catalog_item(store: CatalogStore, participant_id: str, kind: str, payload: Dict[str, Any], submitted_by_name: str | None = None) -> CatalogSubmission:
     validated = validate_submission_payload(kind, payload)
-    if any(submission.status == "pending" and duplicate_key(submission.payload, kind, user_id) == duplicate_key(validated, kind, user_id) for submission in store.submissions.values()):
-        LOGGER.info("catalog_duplicate_submission kind=%s owner_scope=%s", kind, user_id[:8])
+    if any(submission.status == "pending" and duplicate_key(submission.payload, kind, participant_id) == duplicate_key(validated, kind, participant_id) for submission in store.submissions.values()):
+        LOGGER.info("catalog_duplicate_submission kind=%s owner_scope=%s", kind, participant_id[:8])
         raise ValueError("Ja existe uma submissao pendente equivalente.")
     submission = CatalogSubmission(
         id=str(uuid4()),
         kind=kind,
         payload=validated,
-        submitted_by=user_id,
+        participant_id=participant_id,
         submitted_by_name=submitted_by_name,
     )
     store.submissions[submission.id] = submission

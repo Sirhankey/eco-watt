@@ -6,20 +6,15 @@ A coluna `details` é do tipo `jsonb`. Eventos de navegação usam `details->>'p
 
 ## 1. Eventos recentes
 
-Mostra os últimos eventos registrados, incluindo dados demográficos e detalhes específicos do evento.
+Mostra os últimos eventos registrados sem expor username ou dados demográficos.
 
 ```sql
 select
   id,
   occurred_at,
   event,
-  participant_name,
-  user_id,
+  participant_id,
   session_id,
-  role,
-  class_group,
-  age_group,
-  gender,
   details
 from public.analytics_events
 order by occurred_at desc
@@ -34,7 +29,7 @@ Conta o total de eventos, sessões e participantes identificados.
 select
   count(*) as total_eventos,
   count(distinct session_id) as sessoes,
-  count(distinct user_id) as participantes
+  count(distinct coalesce(participant_id::text, user_id::text)) as participantes
 from public.analytics_events;
 ```
 
@@ -52,9 +47,9 @@ group by details->>'page'
 order by acessos desc;
 ```
 
-## 4. Perfil dos participantes
+## 4. Perfil dos participantes (dados históricos)
 
-Conta participantes únicos por perfil.
+Consulta apenas eventos antigos de identificação; contas novas não coletam perfil demográfico.
 
 ```sql
 select
@@ -66,7 +61,7 @@ group by role
 order by participantes desc;
 ```
 
-## 5. Faixa etária
+## 5. Faixa etária (dados históricos)
 
 Resume os participantes por faixa etária.
 
@@ -80,7 +75,7 @@ group by age_group
 order by participantes desc;
 ```
 
-## 6. Gênero
+## 6. Gênero (dados históricos)
 
 Resume os participantes por resposta de gênero.
 
@@ -164,17 +159,13 @@ order by respostas desc;
 
 ## 12. Feedback completo
 
-Lista todas as avaliações com os dados respondidos.
+Lista avaliações e seus identificadores pseudônimos, sem nome ou demografia.
 
 ```sql
 select
   occurred_at,
-  participant_name,
-  user_id,
-  role,
-  class_group,
-  age_group,
-  gender,
+  participant_id,
+  session_id,
   (details->>'rating')::integer as estrelas,
   details->>'knew_kwh' as conhecia_kwh,
   details->>'helped_bill' as ajudou_conta,
@@ -187,20 +178,17 @@ order by occurred_at desc;
 
 ## 13. Usuários disponíveis
 
-Lista os participantes para você copiar um `user_id` e consultar o fluxo individual.
+Lista IDs pseudônimos para consultar o fluxo individual.
 
 ```sql
 select
-  user_id,
-  max(class_group) as turma,
-  max(role) as perfil,
-  max(age_group) as faixa_etaria,
+  coalesce(participant_id::text, user_id::text) as participant_id,
   count(*) as total_eventos,
   min(occurred_at) as primeiro_acesso,
   max(occurred_at) as ultimo_acesso
 from public.analytics_events
-where user_id is not null
-group by user_id
+where participant_id is not null or user_id is not null
+group by coalesce(participant_id::text, user_id::text)
 order by ultimo_acesso desc;
 ```
 
@@ -210,13 +198,13 @@ Mostra cada tela acessada, em ordem cronológica, por usuário e sessão.
 
 ```sql
 select
-  user_id,
+  coalesce(participant_id::text, user_id::text) as participant_id,
   session_id,
   occurred_at,
   details->>'page' as pagina
 from public.analytics_events
 where event = 'page_view'
-order by user_id, session_id, occurred_at;
+order by participant_id, session_id, occurred_at;
 ```
 
 ## 15. Fluxo agrupado em uma linha por sessão
@@ -225,7 +213,7 @@ Transforma cada sessão em uma sequência como `calculator → comparison → pc
 
 ```sql
 select
-  user_id,
+  coalesce(participant_id::text, user_id::text) as participant_id,
   session_id,
   min(occurred_at) as inicio_sessao,
   max(occurred_at) as fim_sessao,
@@ -237,17 +225,17 @@ select
   ) as fluxo
 from public.analytics_events
 where event = 'page_view'
-group by user_id, session_id
+group by coalesce(participant_id::text, user_id::text), session_id
 order by inicio_sessao desc;
 ```
 
 ## 16. Todos os eventos de um usuário
 
-Substitua `COLE_USER_ID_AQUI` pelo valor obtido na consulta 13.
+Substitua `COLE_PARTICIPANT_ID_AQUI` pelo ID obtido na consulta 13.
 
 ```sql
 with parametros as (
-  select 'COLE_USER_ID_AQUI'::text as user_id
+  select 'COLE_PARTICIPANT_ID_AQUI'::text as participant_id
 )
 select
   e.occurred_at,
@@ -256,7 +244,7 @@ select
   e.details
 from public.analytics_events e
 cross join parametros p
-where e.user_id = p.user_id
+where coalesce(e.participant_id::text, e.user_id::text) = p.participant_id
 order by e.occurred_at;
 ```
 
@@ -267,7 +255,7 @@ Use quando quiser analisar uma visita específica. Substitua os dois valores.
 ```sql
 with parametros as (
   select
-    'COLE_USER_ID_AQUI'::text as user_id,
+    'COLE_PARTICIPANT_ID_AQUI'::text as participant_id,
     'COLE_SESSION_ID_AQUI'::text as session_id
 )
 select
@@ -277,7 +265,7 @@ select
   e.details
 from public.analytics_events e
 cross join parametros p
-where e.user_id = p.user_id
+where coalesce(e.participant_id::text, e.user_id::text) = p.participant_id
   and e.session_id = p.session_id
 order by e.occurred_at;
 ```
@@ -315,7 +303,7 @@ Resume os eventos de interação registrados além da navegação.
 select
   event,
   count(*) as ocorrencias,
-  count(distinct user_id) as participantes,
+  count(distinct coalesce(participant_id::text, user_id::text)) as participantes,
   count(distinct session_id) as sessoes
 from public.analytics_events
 where event <> 'page_view'
@@ -331,7 +319,7 @@ Ajuda a acompanhar o movimento durante a feira.
 select
   date(occurred_at) as dia,
   count(*) as total_eventos,
-  count(distinct user_id) as participantes,
+  count(distinct coalesce(participant_id::text, user_id::text)) as participantes,
   count(distinct session_id) as sessoes
 from public.analytics_events
 group by date(occurred_at)
@@ -340,8 +328,8 @@ order by dia desc;
 
 ## Observações
 
-- `user_id` identifica a combinação pseudônima de nome e turma.
-- `session_id` identifica uma sessão de acesso específica.
+- `participant_id` é o UUID pseudônimo estável da conta; `user_id` aparece apenas como compatibilidade com eventos históricos.
+- `session_id` identifica uma visita e pode mudar entre sessões do mesmo participante.
 - `page_view` registra a abertura de uma tela.
 - `details` armazena os dados específicos de cada evento em formato JSONB.
 - Para consultas que usam `rating`, o cast para `integer` permite calcular média e ordenar numericamente.

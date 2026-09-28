@@ -5,18 +5,13 @@
 -- ============================================================
 
 -- 1. EVENTOS RECENTES
--- Mostra os ultimos eventos registrados no aplicativo.
+-- Mostra eventos recentes sem username ou dados demograficos.
 select
   id,
   occurred_at,
   event,
-  participant_name,
-  user_id,
+  participant_id,
   session_id,
-  role,
-  class_group,
-  age_group,
-  gender,
   details
 from public.analytics_events
 order by occurred_at desc
@@ -28,7 +23,7 @@ limit 50;
 select
   count(*) as total_eventos,
   count(distinct session_id) as sessoes,
-  count(distinct user_id) as participantes
+  count(distinct coalesce(participant_id::text, user_id::text)) as participantes
 from public.analytics_events;
 
 
@@ -44,8 +39,8 @@ group by details->>'page'
 order by acessos desc;
 
 
--- 4. PERFIL DOS PARTICIPANTES
--- Conta participantes unicos por perfil: aluno, professor etc.
+-- 4. PERFIL DOS PARTICIPANTES (DADOS HISTORICOS)
+-- Eventos novos nao coletam perfil demografico.
 select
   role as perfil,
   count(distinct user_id) as participantes
@@ -55,7 +50,7 @@ group by role
 order by participantes desc;
 
 
--- 5. FAIXA ETARIA
+-- 5. FAIXA ETARIA (DADOS HISTORICOS)
 -- Resume os participantes por faixa etaria.
 select
   age_group as faixa_etaria,
@@ -66,7 +61,7 @@ group by age_group
 order by participantes desc;
 
 
--- 6. GENERO
+-- 6. GENERO (DADOS HISTORICOS)
 -- Resume os participantes por resposta de genero.
 select
   gender as genero,
@@ -131,15 +126,11 @@ order by respostas desc;
 
 
 -- 12. FEEDBACK COMPLETO
--- Lista as respostas detalhadas de cada avaliacao.
+-- Lista as respostas e seus IDs pseudonimos sem nome ou demografia.
 select
   occurred_at,
-  participant_name,
-  user_id,
-  role,
-  class_group,
-  age_group,
-  gender,
+  participant_id,
+  session_id,
   (details->>'rating')::integer as estrelas,
   details->>'knew_kwh' as conhecia_kwh,
   details->>'helped_bill' as ajudou_conta,
@@ -151,38 +142,35 @@ order by occurred_at desc;
 
 
 -- 13. USUARIOS DISPONIVEIS
--- Lista os participantes para copiar um user_id e consultar seu fluxo.
+-- Lista IDs pseudonimos para consultar o fluxo individual.
 select
-  user_id,
-  max(class_group) as turma,
-  max(role) as perfil,
-  max(age_group) as faixa_etaria,
+  coalesce(participant_id::text, user_id::text) as participant_id,
   count(*) as total_eventos,
   min(occurred_at) as primeiro_acesso,
   max(occurred_at) as ultimo_acesso
 from public.analytics_events
-where user_id is not null
-group by user_id
+where participant_id is not null or user_id is not null
+group by coalesce(participant_id::text, user_id::text)
 order by ultimo_acesso desc;
 
 
 -- 14. FLUXO DE TELAS DE TODOS OS USUARIOS
 -- Mostra cada tela acessada em ordem cronologica.
 select
-  user_id,
+  coalesce(participant_id::text, user_id::text) as participant_id,
   session_id,
   occurred_at,
   details->>'page' as pagina
 from public.analytics_events
 where event = 'page_view'
-order by user_id, session_id, occurred_at;
+order by participant_id, session_id, occurred_at;
 
 
 -- 15. FLUXO AGRUPADO POR SESSAO
 -- Cria uma linha por sessao, por exemplo:
 -- calculator -> comparison -> home_simulator -> pc_builder
 select
-  user_id,
+  coalesce(participant_id::text, user_id::text) as participant_id,
   session_id,
   min(occurred_at) as inicio_sessao,
   max(occurred_at) as fim_sessao,
@@ -194,15 +182,14 @@ select
   ) as fluxo
 from public.analytics_events
 where event = 'page_view'
-group by user_id, session_id
+group by coalesce(participant_id::text, user_id::text), session_id
 order by inicio_sessao desc;
 
 
 -- 16. TODOS OS EVENTOS DE UM USUARIO
--- Altere apenas o valor dentro da CTE parametros.
--- Primeiro use a consulta 13 para descobrir o user_id.
+-- Altere o participant_id na CTE parametros; use a consulta 13 para encontra-lo.
 with parametros as (
-  select 'COLE_USER_ID_AQUI'::text as user_id
+  select 'COLE_PARTICIPANT_ID_AQUI'::text as participant_id
 )
 select
   e.occurred_at,
@@ -211,15 +198,15 @@ select
   e.details
 from public.analytics_events e
 cross join parametros p
-where e.user_id = p.user_id
+where coalesce(e.participant_id::text, e.user_id::text) = p.participant_id
 order by e.occurred_at;
 
 
 -- 17. FLUXO DE UM USUARIO EM UMA SESSAO
--- Altere user_id e session_id na CTE parametros.
+-- Altere participant_id e session_id na CTE parametros.
 with parametros as (
   select
-    'COLE_USER_ID_AQUI'::text as user_id,
+    'COLE_PARTICIPANT_ID_AQUI'::text as participant_id,
     'COLE_SESSION_ID_AQUI'::text as session_id
 )
 select
@@ -229,7 +216,7 @@ select
   e.details
 from public.analytics_events e
 cross join parametros p
-where e.user_id = p.user_id
+where coalesce(e.participant_id::text, e.user_id::text) = p.participant_id
   and e.session_id = p.session_id
 order by e.occurred_at;
 
@@ -261,7 +248,7 @@ order by sessoes desc, fluxo;
 select
   event,
   count(*) as ocorrencias,
-  count(distinct user_id) as participantes,
+  count(distinct coalesce(participant_id::text, user_id::text)) as participantes,
   count(distinct session_id) as sessoes
 from public.analytics_events
 where event <> 'page_view'
@@ -274,7 +261,7 @@ order by ocorrencias desc;
 select
   date(occurred_at) as dia,
   count(*) as total_eventos,
-  count(distinct user_id) as participantes,
+  count(distinct coalesce(participant_id::text, user_id::text)) as participantes,
   count(distinct session_id) as sessoes
 from public.analytics_events
 group by date(occurred_at)
@@ -283,8 +270,7 @@ order by dia desc;
 
 -- ============================================================
 -- OBSERVACOES
--- user_id: identificador pseudonimo do participante.
--- participant_name: nome informado no inicio da sessao.
+-- participant_id: UUID pseudonimo estavel da conta; user_id serve a eventos historicos.
 -- session_id: identificador de uma sessao de acesso.
 -- page_view: evento de abertura de uma tela.
 -- details: dados especificos do evento em formato JSONB.

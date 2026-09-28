@@ -1,7 +1,15 @@
 """Short educational quiz for the EcoWatt event."""
 import streamlit as st
 
-from ecowatt.services.quiz_service import Quiz, QuizQuestion, QuizService
+from ecowatt.services.quiz_service import (
+    PERSISTED_QUESTION_IDS,
+    PERSISTED_QUIZ_ID,
+    Quiz,
+    QuizPersistenceUnavailable,
+    QuizQuestion,
+    QuizService,
+    SupabaseQuizRepository,
+)
 from ecowatt.utils.logging import track_event
 from ecowatt.utils.session import init_session_state
 from ecowatt.utils.features import feature_enabled
@@ -15,21 +23,32 @@ if not feature_enabled("event_quiz", True):
     st.stop()
 
 quiz = Quiz(
-    id="ecowatt-basics",
-    title="Desafio EcoWatt",
+    id=PERSISTED_QUIZ_ID,
+    title="Desafio EcoWatt: fundamentos de energia",
     questions=[
-        QuizQuestion("power-energy", "O que o kWh mede?", ("Energia consumida", "Potencia instantanea", "Tensao"), 0, "kWh combina potencia e tempo para representar energia consumida."),
-        QuizQuestion("power-unit", "Qual unidade mede potencia?", ("Watt (W)", "Quilowatt-hora (kWh)", "Litro"), 0, "Watt mede a potencia instantanea de um aparelho."),
-        QuizQuestion("standby", "O que ajuda a reduzir consumo em stand-by?", ("Desligar da tomada", "Aumentar o brilho", "Deixar a luz acesa"), 0, "Retirar aparelhos da tomada evita o consumo quando eles nao estao em uso."),
+        QuizQuestion(PERSISTED_QUESTION_IDS[0], "O que o kWh mede?", ("Energia consumida", "Potencia instantanea", "Tensao"), 0, "kWh combina potencia e tempo para representar energia consumida."),
+        QuizQuestion(PERSISTED_QUESTION_IDS[1], "Qual unidade mede potencia?", ("Watt (W)", "Quilowatt-hora (kWh)", "Litro"), 0, "Watt mede a potencia instantanea de um aparelho."),
+        QuizQuestion(PERSISTED_QUESTION_IDS[2], "O que ajuda a reduzir consumo em stand-by?", ("Desligar da tomada", "Aumentar o brilho", "Deixar a luz acesa"), 0, "Retirar aparelhos da tomada evita o consumo quando eles nao estao em uso."),
     ],
     enabled=True,
     reward_enabled=False,
 )
 
 if "quiz_service" not in st.session_state:
-    st.session_state.quiz_service = QuizService()
+    st.session_state.quiz_service = QuizService(repository=SupabaseQuizRepository())
 service: QuizService = st.session_state.quiz_service
-attempt = service.start(quiz, st.session_state.analytics_session_started and st.session_state.user_id)
+try:
+    attempt = service.start(
+        quiz,
+        st.session_state.analytics_session_id,
+        st.session_state.participant_id,
+    )
+except ValueError as exc:
+    st.info(str(exc))
+    st.stop()
+except QuizPersistenceUnavailable as exc:
+    st.error(str(exc))
+    st.stop()
 
 st.title(quiz.title)
 st.caption("Responda para revisar conceitos de energia. O resultado e educativo e nao representa uma competicao oficial.")

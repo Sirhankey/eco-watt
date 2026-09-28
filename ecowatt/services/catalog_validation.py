@@ -104,7 +104,7 @@ def validate_submission_payload(kind: str, payload: Mapping[str, Any]) -> dict[s
     return result
 
 
-def duplicate_key(item: Mapping[str, Any], kind: str, owner_user_id: Optional[str] = None) -> tuple[Any, ...]:
+def duplicate_key(item: Mapping[str, Any], kind: str, participant_id: Optional[str] = None) -> tuple[Any, ...]:
     normalized = normalize_name(str(item.get("name", item.get("title", ""))))
     if kind == "appliance":
         fields = (item.get("category", ""), item.get("power_watts"), item.get("hours_per_day"), item.get("days_per_month", 30))
@@ -112,9 +112,9 @@ def duplicate_key(item: Mapping[str, Any], kind: str, owner_user_id: Optional[st
         fields = (item.get("category", ""), item.get("tdp_watts"), item.get("idle_watts"), item.get("typical_load_watts"), item.get("gaming_load_watts"))
     else:
         fields = ()
-    return (owner_user_id, normalized, *fields)
+    return (participant_id, normalized, *fields)
 
 
-def find_duplicate(items: Iterable[Mapping[str, Any]], candidate: Mapping[str, Any], kind: str, owner_user_id: Optional[str] = None) -> Optional[Mapping[str, Any]]:
-    candidate_key = duplicate_key(candidate, kind, owner_user_id)
-    return next((item for item in items if duplicate_key(item, kind, owner_user_id) == candidate_key), None)
+def find_duplicate(items: Iterable[Mapping[str, Any]], candidate: Mapping[str, Any], kind: str, participant_id: Optional[str] = None) -> Optional[Mapping[str, Any]]:
+    candidate_key = duplicate_key(candidate, kind, participant_id)
+    return next((item for item in items if duplicate_key(item, kind, participant_id) == candidate_key), None)

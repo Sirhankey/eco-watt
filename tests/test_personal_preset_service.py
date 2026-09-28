@@ -16,6 +16,7 @@ def test_personal_preset_snapshots_and_applies_copy():
     preset = save_personal_preset("Casa leve", appliances(), 0.85, "user-1")
     restored = apply_personal_preset(preset)
     assert preset["monthly_kwh"] == 1.5
+    assert preset["participant_id"] == "user-1"
     assert restored[0].name == "Lampada"
     preset["items"][0]["name"] = "Alterado"
     assert restored[0].name == "Lampada"

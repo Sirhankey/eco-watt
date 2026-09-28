@@ -43,12 +43,7 @@ def track_event(event_name: str, **details: Any) -> None:
         "event": event_name,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "session_id": _get_session_id(),
-        "user_id": st.session_state.get("user_id"),
-        "participant_name": st.session_state.get("user_name"),
-        "class_group": st.session_state.get("class_group"),
-        "role": st.session_state.get("role"),
-        "age_group": st.session_state.get("age_group"),
-        "gender": st.session_state.get("gender"),
+        "participant_id": st.session_state.get("participant_id"),
         **details,
     }
     _get_logger().info(json.dumps(event, ensure_ascii=True, default=str))

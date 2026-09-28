@@ -1,152 +1,196 @@
 """Session state initialization and state management utilities."""
-import json
-import base64
-from typing import Any
+from datetime import datetime, timezone
 
 import streamlit as st
+from streamlit_cookies_controller import CookieController
+
 from ecowatt.services.preset_service import convert_preset_to_appliances
 from ecowatt.services.catalog_repository import load_official_appliances, load_official_presets
-from ecowatt.utils.logging import create_user_id, track_event
+from ecowatt.services.participant_auth import (
+    AuthStorageUnavailable,
+    LoginRateLimited,
+    ParticipantAuthService,
+    UsernameAlreadyTaken,
+    normalize_username,
+)
+from ecowatt.utils.features import feature_enabled
+from ecowatt.utils.logging import track_event
 
 IDENTITY_COOKIE = "ecowatt_identity"
-IDENTITY_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
+AUTH_SESSION_COOKIE = "ecowatt_auth_session"
+AUTH_SESSION_MAX_AGE = 60 * 60 * 24 * 30
 
 
-def _identity_from_cookie(raw_value: object) -> dict[str, str] | None:
-    if not isinstance(raw_value, str):
-        return None
+def _set_authenticated_participant(participant) -> None:
+    st.session_state.participant_id = participant.participant_id
+    st.session_state.user_id = participant.participant_id
+    st.session_state.username = participant.username
+    st.session_state.user_name = participant.username
+    st.session_state.auth_session_token = participant.session_token
+    st.session_state.auth_expires_at = participant.expires_at.isoformat()
+    st.session_state.must_change_password = participant.must_change_password
+
+
+def _auth_cookie_value(controller: CookieController) -> str | None:
     try:
-        identity = json.loads(raw_value)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return None
-    required_fields = {"user_id", "user_name", "class_group", "role", "age_group", "gender"}
-    if not isinstance(identity, dict) or not required_fields.issubset(identity):
-        return None
-    if not all(isinstance(identity[field], str) and identity[field].strip() for field in required_fields):
-        return None
-    return {field: identity[field].strip() for field in required_fields}
+        value = st.context.cookies.get(AUTH_SESSION_COOKIE)
+    except (AttributeError, RuntimeError):
+        value = None
+    return value if isinstance(value, str) and value else controller.get(AUTH_SESSION_COOKIE)
 
 
-def _identity_from_query_params() -> dict[str, str] | None:
-    encoded = st.query_params.get("participant")
-    if not encoded:
-        return None
-    try:
-        raw_value = base64.urlsafe_b64decode(encoded.encode("ascii")).decode("utf-8")
-    except (ValueError, UnicodeDecodeError):
-        return None
-    return _identity_from_cookie(raw_value)
+def _remove_auth_cookie(controller: CookieController) -> None:
+    if controller.get(AUTH_SESSION_COOKIE) is not None:
+        controller.remove(AUTH_SESSION_COOKIE, secure=True, same_site="strict")
+    st.session_state.pop("auth_session_token", None)
+    st.session_state.pop("auth_expires_at", None)
+    st.session_state.pop("participant_id", None)
+    st.session_state.pop("user_id", None)
+    st.session_state.pop("username", None)
+    st.session_state.pop("user_name", None)
+    st.session_state.pop("must_change_password", None)
 
 
-def _save_identity_to_query_params(identity: dict[str, str]) -> None:
-    payload = json.dumps(identity, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
-    st.query_params["participant"] = base64.urlsafe_b64encode(payload).decode("ascii")
+def _render_authentication(controller: CookieController, service: ParticipantAuthService) -> None:
+    st.title("EcoWatt")
+    st.caption("Entre ou crie sua conta da feira.")
+    login_tab, register_tab = st.tabs(["Entrar", "Criar conta"])
+
+    with login_tab:
+        with st.form("participant_login"):
+            username = st.text_input("Nome de usuário", key="login_username")
+            password = st.text_input("Senha", type="password", key="login_password")
+            submitted = st.form_submit_button("Entrar", type="primary", use_container_width=True)
+        if submitted:
+            try:
+                participant = service.login(username, password)
+                if participant is None:
+                    st.error("Nome de usuário ou senha incorretos.")
+                else:
+                    _set_authenticated_participant(participant)
+                    controller.set(
+                        AUTH_SESSION_COOKIE,
+                        participant.session_token,
+                        max_age=AUTH_SESSION_MAX_AGE,
+                        path="/",
+                        secure=True,
+                        same_site="strict",
+                    )
+                    track_event("participant_logged_in")
+                    st.rerun()
+            except LoginRateLimited as exc:
+                st.warning(str(exc))
+            except AuthStorageUnavailable as exc:
+                st.error(str(exc))
+
+    with register_tab:
+        with st.form("participant_registration"):
+            username = st.text_input("Nome de usuário", key="register_username")
+            password = st.text_input("Senha (6 a 128 caracteres)", type="password", key="register_password")
+            confirmation = st.text_input("Confirmar senha", type="password", key="register_password_confirmation")
+            check_name = st.form_submit_button("Verificar nome")
+            create_account = st.form_submit_button("Criar conta", type="primary", use_container_width=True)
+        if check_name:
+            try:
+                normalized = normalize_username(username)
+                if service.username_available(normalized):
+                    st.success("Nome de usuário disponível.")
+                else:
+                    st.warning("Esse nome de usuário já está em uso.")
+            except ValueError as exc:
+                st.warning(str(exc))
+            except AuthStorageUnavailable as exc:
+                st.error(str(exc))
+        if create_account:
+            if password != confirmation:
+                st.error("As senhas não conferem.")
+            else:
+                try:
+                    participant = service.register(username, password)
+                    _set_authenticated_participant(participant)
+                    controller.set(
+                        AUTH_SESSION_COOKIE,
+                        participant.session_token,
+                        max_age=AUTH_SESSION_MAX_AGE,
+                        path="/",
+                        secure=True,
+                        same_site="strict",
+                    )
+                    track_event("participant_registered")
+                    st.rerun()
+                except (ValueError, UsernameAlreadyTaken) as exc:
+                    st.error(str(exc))
+                except AuthStorageUnavailable as exc:
+                    st.error(str(exc))
+
+    st.info("O serviço de contas precisa estar online para criar uma conta ou entrar.")
+    st.stop()
 
 
-def _save_identity(controller: Any, identity: dict[str, str]) -> None:
-    controller.set(
-        IDENTITY_COOKIE,
-        json.dumps(identity, ensure_ascii=True),
-        max_age=IDENTITY_COOKIE_MAX_AGE,
-    )
-
-
-def _restore_identity(controller: Any) -> bool:
-    """Restore from the initial HTTP cookie before consulting the async component."""
-    identity = _identity_from_query_params()
-    if identity is None:
-        try:
-            raw_cookie = st.context.cookies.get(IDENTITY_COOKIE)
-        except (AttributeError, RuntimeError):
-            raw_cookie = None
-        identity = _identity_from_cookie(raw_cookie)
-    if identity is None:
-        identity = _identity_from_cookie(controller.get(IDENTITY_COOKIE))
-    if identity is None:
-        return False
-    for field, value in identity.items():
-        st.session_state[field] = value
-    st.session_state.identity_restored_from_cookie = True
-    return True
+def _require_password_change(service: ParticipantAuthService, controller: CookieController) -> None:
+    st.title("Atualize sua senha")
+    st.caption("Sua senha temporária precisa ser trocada antes de continuar.")
+    with st.form("participant_password_change"):
+        password = st.text_input("Nova senha (6 a 128 caracteres)", type="password")
+        confirmation = st.text_input("Confirmar nova senha", type="password")
+        submitted = st.form_submit_button("Salvar nova senha", type="primary", use_container_width=True)
+    if submitted:
+        if password != confirmation:
+            st.error("As senhas não conferem.")
+        else:
+            try:
+                service.change_password(st.session_state.participant_id, password)
+                st.session_state.must_change_password = False
+                st.rerun()
+            except (ValueError, AuthStorageUnavailable) as exc:
+                st.error(str(exc))
+    st.stop()
 
 
 def init_session_state():
     """Initializes standard state variables in st.session_state if not present."""
-    from streamlit_cookies_controller import CookieController
+    if not feature_enabled("participant_auth", True):
+        st.error("O acesso autenticado está temporariamente desativado.")
+        st.stop()
 
-    cookie_controller = CookieController(key="ecowatt_identity_controller")
-    if "user_id" not in st.session_state:
-        if not _restore_identity(cookie_controller):
-            st.markdown(
-                """
-                <style>
-                div[data-testid="stForm"] {
-                    max-width: 600px;
-                    margin: 0 auto;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True,
-            )
-            role_left, role_center, role_right = st.columns([1.5, 2, 1.5])
-            with role_center:
-                role = st.selectbox(
-                    "Perfil:",
-                    ["Aluno", "Professor", "Responsável", "Convidado"],
-                    key="role_input",
-                )
-            if role != "Aluno":
-                st.session_state.pop("class_group_input", None)
-            with st.form("user_identification"):
-                st.markdown("### Identificação da sessão")
-                st.caption("Responda para registrar sua participação na feira de ciências.")
-                user_name = st.text_input("Nome:", key="user_name_input")
-                age_group = st.selectbox(
-                    "Faixa etária:",
-                    ["Até 10", "11–14", "15–17", "18–24", "25–39", "40+", "Prefiro não responder"],
-                    key="age_group_input",
-                )
-                gender = st.selectbox(
-                    "Gênero:",
-                    ["Mulher", "Homem", "Não binário", "Outro", "Prefiro não responder"],
-                    key="gender_input",
-                )
-                if role == "Aluno":
-                    class_group = st.text_input("Turma:", key="class_group_input")
-                else:
-                    class_group = "N/A"
-                submitted = st.form_submit_button("Entrar", type="primary", use_container_width=True)
+    cookie_controller = CookieController(key="ecowatt_auth_controller")
+    service = st.session_state.get("participant_auth_service")
+    if service is None:
+        service = ParticipantAuthService()
+        st.session_state.participant_auth_service = service
 
-            if not submitted:
-                st.stop()
-            if not user_name.strip() or not class_group.strip():
-                st.error("Preencha o nome e a turma para continuar.")
-                st.stop()
+    if "participant" in st.query_params:
+        st.query_params.pop("participant", None)
+    if controller_identity := cookie_controller.get(IDENTITY_COOKIE):
+        cookie_controller.remove(IDENTITY_COOKIE, secure=True, same_site="strict")
 
-            st.session_state.user_id = create_user_id(user_name, class_group)
-            st.session_state.class_group = class_group.strip()
-            st.session_state.user_name = user_name.strip()
-            st.session_state.role = role
-            st.session_state.age_group = age_group
-            st.session_state.gender = gender
-            _save_identity(cookie_controller, {
-                "user_id": st.session_state.user_id,
-                "user_name": st.session_state.user_name,
-                "class_group": st.session_state.class_group,
-                "role": st.session_state.role,
-                "age_group": st.session_state.age_group,
-                "gender": st.session_state.gender,
-            })
-            _save_identity_to_query_params({
-                "user_id": st.session_state.user_id,
-                "user_name": st.session_state.user_name,
-                "class_group": st.session_state.class_group,
-                "role": st.session_state.role,
-                "age_group": st.session_state.age_group,
-                "gender": st.session_state.gender,
-            })
-            track_event("user_identified", role=role, age_group=age_group, gender=gender)
-            st.rerun()
+    token = st.session_state.get("auth_session_token") or _auth_cookie_value(cookie_controller)
+    if token:
+        try:
+            participant = service.restore(token)
+        except AuthStorageUnavailable as exc:
+            st.error(str(exc))
+            st.stop()
+        if participant:
+            _set_authenticated_participant(participant)
+        else:
+            _remove_auth_cookie(cookie_controller)
+
+    if "participant_id" not in st.session_state:
+        for field in ("user_id", "user_name", "class_group", "role", "age_group", "gender"):
+            st.session_state.pop(field, None)
+        _render_authentication(cookie_controller, service)
+
+    try:
+        expires_at = datetime.fromisoformat(st.session_state.auth_expires_at)
+    except (KeyError, TypeError, ValueError):
+        expires_at = datetime.min.replace(tzinfo=timezone.utc)
+    if expires_at <= datetime.now(timezone.utc):
+        _remove_auth_cookie(cookie_controller)
+        _render_authentication(cookie_controller, service)
+
+    if st.session_state.get("must_change_password"):
+        _require_password_change(service, cookie_controller)
 
     is_new_session = "analytics_session_started" not in st.session_state
     if is_new_session:
@@ -212,17 +256,18 @@ def init_session_state():
         f"<div title='{connection_label}' style='display:flex; align-items:center; gap:8px;'>"
         f"<span style='display:inline-block; width:10px; height:10px; border-radius:50%; background:{connection_color}; "
         f"box-shadow:0 0 0 2px rgba(0,0,0,0.08);'></span>"
-        f"<strong>{st.session_state.user_name}</strong></div>",
+        f"<strong>{st.session_state.username}</strong></div>",
         unsafe_allow_html=True,
     )
-    st.sidebar.caption(f"Perfil: {st.session_state.role}")
-
-    # if st.sidebar.button("Esquecer identificação", key="forget_identity"):
-    #     cookie_controller.remove(IDENTITY_COOKIE)
-    #     st.query_params.pop("participant", None)
-    #     for field in ("user_id", "user_name", "class_group", "role", "age_group", "gender"):
-    #         st.session_state.pop(field, None)
-    #     st.rerun()
+    st.sidebar.caption("Participante")
+    if st.sidebar.button("Sair", key="participant_logout"):
+        try:
+            service.logout(st.session_state.auth_session_token)
+        except AuthStorageUnavailable as exc:
+            st.sidebar.error(str(exc))
+        else:
+            _remove_auth_cookie(cookie_controller)
+            st.rerun()
 
     # _render_feedback_form()
 
@@ -290,7 +335,7 @@ def _render_feedback_form() -> None:
 
 def reset_to_preset(preset_id: str):
     """Loads a specific preset into session state."""
-    presets = load_presets()
+    presets = load_official_presets()
     for p in presets:
         if p["id"] == preset_id:
             st.session_state.appliances = convert_preset_to_appliances(p)

@@ -9,15 +9,17 @@ def appliance_payload(name="Ventilador"):
 
 def test_personal_item_duplicate_has_clear_error():
     store = CatalogStore()
-    create_personal_item(store, "user-1", "appliance", appliance_payload())
+    item = create_personal_item(store, "participant-1", "appliance", appliance_payload())
+    assert item.participant_id == "participant-1"
     with pytest.raises(ValueError, match="ja foi criado"):
-        create_personal_item(store, "user-1", "appliance", appliance_payload(" ventilador "))
+        create_personal_item(store, "participant-1", "appliance", appliance_payload(" ventilador "))
 
 
 def test_submission_stays_pending_until_moderated_and_is_audited():
     store = CatalogStore()
-    submission = submit_catalog_item(store, "user-1", "appliance", appliance_payload(), "Ana")
+    submission = submit_catalog_item(store, "participant-1", "appliance", appliance_payload(), "aluno-01")
     assert submission.status == "pending"
+    assert submission.participant_id == "participant-1"
     moderated = moderate_submission(store, submission.id, "moderator-1", "approved")
     assert moderated.moderator_id == "moderator-1"
     assert store.moderation_audit[0]["decision"] == "approved"

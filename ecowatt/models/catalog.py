@@ -13,7 +13,7 @@ class CatalogAppliance:
     hours_per_day: float
     days_per_month: float = 30.0
     description: Optional[str] = None
-    owner_user_id: Optional[str] = None
+    participant_id: Optional[str] = None
     status: str = "published"
     created_by_name: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -41,7 +41,7 @@ class CatalogPCComponent:
     typical_load_watts: float
     gaming_load_watts: float
     description: Optional[str] = None
-    owner_user_id: Optional[str] = None
+    participant_id: Optional[str] = None
     status: str = "published"
     created_by_name: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -65,7 +65,7 @@ class CatalogFact:
     id: str
     title: str
     body: str
-    owner_user_id: Optional[str] = None
+    participant_id: Optional[str] = None
     status: str = "published"
 
 
@@ -74,7 +74,7 @@ class CatalogPreset:
     id: str
     name: str
     description: Optional[str] = None
-    owner_user_id: Optional[str] = None
+    participant_id: Optional[str] = None
     status: str = "published"
     items: list[Dict[str, Any]] = field(default_factory=list)
 
@@ -84,7 +84,7 @@ class CatalogSubmission:
     id: str
     kind: str
     payload: Dict[str, Any]
-    submitted_by: str
+    participant_id: str
     status: str = "pending"
     submitted_by_name: Optional[str] = None
     moderator_id: Optional[str] = None

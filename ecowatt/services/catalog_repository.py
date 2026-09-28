@@ -15,6 +15,21 @@ from ecowatt.services.preset_service import load_default_appliances, load_facts,
 from ecowatt.services.analytics_service import is_supabase_configured
 from ecowatt.utils.features import feature_enabled
 
+PC_CATEGORY_KEYS = {
+    "cpu": "cpus",
+    "gpu": "gpus",
+    "motherboard": "motherboards",
+    "ram": "rams",
+    "storage": "storages",
+    "monitor": "monitors",
+    "peripherals": "peripherals",
+}
+
+
+def _pc_category_key(category: str) -> str:
+    normalized = category.strip().casefold()
+    return PC_CATEGORY_KEYS.get(normalized, normalized)
+
 
 def _secret(name: str) -> Optional[str]:
     environment_value = os.getenv(name)
@@ -103,7 +118,7 @@ def load_official_pc_components() -> Dict[str, List[PCComponent]]:
                     gaming_load_watts=float(item["gaming_load_watts"]),
                     description=item.get("description"),
                 )
-                catalog.setdefault(component.category, []).append(component)
+                catalog.setdefault(_pc_category_key(component.category), []).append(component)
             return catalog
     from ecowatt.services.pc_energy_service import load_default_pc_components
 

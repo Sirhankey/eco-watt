@@ -58,3 +58,29 @@ def test_official_preset_loader_rebuilds_nested_items_from_supabase(monkeypatch)
 
     assert presets[0]["appliances"][0]["id"] == "item-1"
     assert catalog_repository.st.session_state.catalog_source == "Supabase"
+
+
+def test_remote_pc_loader_maps_display_categories_to_builder_keys(monkeypatch):
+    monkeypatch.setattr(catalog_repository, "is_supabase_configured", lambda: True)
+    monkeypatch.setattr(catalog_repository, "feature_enabled", lambda name, default=False: True)
+    categories = ["CPU", "GPU", "Motherboard", "RAM", "Storage", "Monitor", "Peripherals"]
+    monkeypatch.setattr(
+        catalog_repository,
+        "_fetch_table",
+        lambda table, filters=None: [
+            {
+                "id": category.lower(),
+                "name": category,
+                "category": category,
+                "tdp_watts": 10,
+                "idle_watts": 1,
+                "typical_load_watts": 5,
+                "gaming_load_watts": 8,
+            }
+            for category in categories
+        ],
+    )
+
+    catalog = catalog_repository.load_official_pc_components()
+
+    assert set(catalog) == {"cpus", "gpus", "motherboards", "rams", "storages", "monitors", "peripherals"}

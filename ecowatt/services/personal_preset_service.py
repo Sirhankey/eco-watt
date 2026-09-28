@@ -13,7 +13,7 @@ def save_personal_preset(
     name: str,
     appliances: Iterable[Appliance],
     tariff: float,
-    owner_user_id: str,
+    participant_id: str,
     comparison_consent: bool = False,
     visibility: str = "private",
     pseudonymous_label: Optional[str] = None,
@@ -32,7 +32,7 @@ def save_personal_preset(
     result = calculate_total_household_consumption(appliance_list)
     return {
         "id": str(uuid4()),
-        "owner_user_id": owner_user_id,
+        "participant_id": participant_id,
         "name": clean_name,
         "tariff": float(tariff),
         "monthly_kwh": float(result["total_monthly_kwh"]),

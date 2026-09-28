@@ -42,12 +42,7 @@ def save_event(event: dict[str, Any]) -> bool:
         "event": event.get("event"),
         "occurred_at": event.get("timestamp"),
         "session_id": event.get("session_id"),
-        "user_id": event.get("user_id"),
-        "participant_name": event.get("participant_name"),
-        "class_group": event.get("class_group"),
-        "role": event.get("role"),
-        "age_group": event.get("age_group"),
-        "gender": event.get("gender"),
+        "participant_id": event.get("participant_id"),
         "details": {
             key: value
             for key, value in event.items()
@@ -55,12 +50,7 @@ def save_event(event: dict[str, Any]) -> bool:
                 "event",
                 "timestamp",
                 "session_id",
-                "user_id",
-                "participant_name",
-                "class_group",
-                "role",
-                "age_group",
-                "gender",
+                "participant_id",
             }
         },
     }

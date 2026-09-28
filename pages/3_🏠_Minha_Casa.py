@@ -283,7 +283,7 @@ with tab_share:
                     preset_name,
                     st.session_state.appliances,
                     float(st.session_state.tariff),
-                    st.session_state.user_id,
+                    st.session_state.participant_id,
                     comparison_consent,
                     preset_visibility,
                     pseudonymous_label,
