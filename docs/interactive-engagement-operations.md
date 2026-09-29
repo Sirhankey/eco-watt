@@ -47,6 +47,24 @@ python scripts/manage_participant_accounts.py cleanup --execute --purge-results
 
 Revise o dry-run e exporte qualquer resultado autorizado antes de executar uma remoção. A limpeza de contas não apaga resultados pseudonimizados; eles permanecem sem username até a equipe solicitar a limpeza correspondente.
 
+### Casas compartilhadas como cenários
+
+Cada participante pode salvar uma residência privada em `public.participant_homes`; existe um snapshot por participante, atualizado ao salvar novamente. Para disponibilizar uma casa como cenário para todos, a equipe deve localizar e aprovar o registro e então marcar `is_public = true` diretamente no Supabase. A aplicação só lista registros públicos, e o formulário do participante não pode alterar essa flag.
+
+```sql
+update public.participant_homes
+set is_public = true
+where id = 'UUID_DA_CASA';
+```
+
+Para retirar um cenário da lista compartilhada:
+
+```sql
+update public.participant_homes
+set is_public = false
+where id = 'UUID_DA_CASA';
+```
+
 ## Feature flags
 
 As flags podem ser definidas como variaveis de ambiente ou secrets Streamlit:

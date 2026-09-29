@@ -44,6 +44,57 @@ class SupabaseQuizRepository:
             raise QuizPersistenceUnavailable("Não foi possível verificar se o quiz está ativo.")
         return bool(rows and rows[0].get("enabled"))
 
+    def load_quiz(self, quiz_id: str) -> "Quiz":
+        status, quiz_rows = self._request(
+            "GET",
+            "event_quizzes",
+            filters={
+                "select": "id,title,enabled,reward_enabled",
+                "id": f"eq.{quiz_id}",
+                "limit": "1",
+            },
+        )
+        if status < 200 or status >= 300:
+            raise QuizPersistenceUnavailable("Não foi possível carregar a configuração do quiz.")
+        if not quiz_rows:
+            raise ValueError("O quiz não está cadastrado no Supabase.")
+
+        status, question_rows = self._request(
+            "GET",
+            "quiz_questions",
+            filters={
+                "select": "id,prompt,explanation,options,correct_option",
+                "quiz_id": f"eq.{quiz_id}",
+                "status": "eq.published",
+                "order": "created_at.asc,id.asc",
+            },
+        )
+        if status < 200 or status >= 300:
+            raise QuizPersistenceUnavailable("Não foi possível carregar as perguntas publicadas.")
+        if not question_rows:
+            raise ValueError("Este quiz ainda não possui perguntas publicadas.")
+
+        try:
+            questions = [
+                QuizQuestion(
+                    id=str(row["id"]),
+                    prompt=str(row["prompt"]),
+                    options=tuple(str(option) for option in row["options"]),
+                    correct_option=int(row["correct_option"]),
+                    explanation=str(row["explanation"]),
+                )
+                for row in question_rows
+            ]
+            return Quiz(
+                id=str(quiz_rows[0]["id"]),
+                title=str(quiz_rows[0]["title"]),
+                questions=questions,
+                enabled=bool(quiz_rows[0]["enabled"]),
+                reward_enabled=bool(quiz_rows[0].get("reward_enabled", False)),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise QuizPersistenceUnavailable("O quiz contém uma pergunta publicada inválida.") from error
+
     def find_attempt(self, quiz_id: str, participant_id: str) -> dict | None:
         status, rows = self._request(
             "GET",
@@ -207,10 +258,12 @@ class QuizService:
         return is_correct
 
     def finish(self, quiz: Quiz, attempt: QuizAttempt) -> QuizAttempt:
-        if len(attempt.answers) != len(quiz.questions):
+        if len(attempt.answers) != len(attempt.question_ids):
             raise ValueError("Responda todas as perguntas antes de finalizar.")
+        questions_by_id = {question.id: question for question in quiz.questions}
+        attempt_questions = [questions_by_id[question_id] for question_id in attempt.question_ids]
         score = sum(
-            1 for question in quiz.questions if attempt.answers.get(question.id) == question.correct_option
+            1 for question in attempt_questions if attempt.answers.get(question.id) == question.correct_option
         )
         participation_code = None
         if quiz.reward_enabled:
@@ -222,13 +275,18 @@ class QuizService:
         return attempt
 
     def result(self, quiz: Quiz, attempt: QuizAttempt) -> list[dict[str, object]]:
+        questions_by_id = {question.id: question for question in quiz.questions}
         return [
             {
                 "question_id": question.id,
+                "prompt": question.prompt,
                 "correct": attempt.answers.get(question.id) == question.correct_option,
+                "selected_option": attempt.answers.get(question.id),
+                "correct_option": question.correct_option,
+                "correct_answer": question.options[question.correct_option],
                 "explanation": question.explanation,
             }
-            for question in quiz.questions
+            for question in (questions_by_id[question_id] for question_id in attempt.question_ids)
         ]
 
     @staticmethod

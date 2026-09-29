@@ -1,6 +1,13 @@
 import pytest
 
-from ecowatt.services.quiz_service import Quiz, QuizQuestion, QuizService, export_minimized_results
+from ecowatt.services.quiz_service import (
+    PERSISTED_QUIZ_ID,
+    Quiz,
+    QuizQuestion,
+    QuizService,
+    SupabaseQuizRepository,
+    export_minimized_results,
+)
 
 
 def quiz(reward=False):
@@ -32,6 +39,26 @@ def test_invalid_question_and_incomplete_finish_are_rejected():
     attempt = service.start(current, "session-2")
     with pytest.raises(ValueError, match="todas"):
         service.finish(current, attempt)
+
+
+def test_attempt_keeps_its_original_question_set_after_quiz_grows():
+    original = quiz()
+    service = QuizService(seed=1)
+    attempt = service.start(original, "session-original")
+    attempt.question_ids = ["one"]
+    service.answer(original, attempt, "one", 0)
+
+    expanded = Quiz(
+        original.id,
+        original.title,
+        original.questions + [
+            QuizQuestion("three", "Outra pergunta?", ("Sim", "Não"), 0, "Explicação nova.")
+        ],
+    )
+    service.finish(expanded, attempt)
+
+    assert attempt.score == 1
+    assert [result["question_id"] for result in service.result(expanded, attempt)] == ["one"]
 
 
 def test_result_export_omits_names_by_default():
@@ -124,3 +151,49 @@ def test_persistent_quiz_attempts_are_isolated_by_participant():
 
     assert first.id != second.id
     assert first.participant_id != second.participant_id
+
+
+class FakeQuizContentClient:
+    def __init__(self):
+        self.calls = []
+
+    def request(self, method, table, *, filters=None, payload=None, prefer=None):
+        self.calls.append((method, table, filters))
+        if table == "event_quizzes":
+            return 200, [{
+                "id": PERSISTED_QUIZ_ID,
+                "title": "Desafio EcoWatt",
+                "enabled": True,
+                "reward_enabled": False,
+            }]
+        if table == "quiz_questions":
+            return 200, [
+                {
+                    "id": "question-1",
+                    "prompt": "Qual unidade mede energia?",
+                    "explanation": "kWh mede energia consumida.",
+                    "options": ["kWh", "Watt", "Volt"],
+                    "correct_option": 0,
+                },
+                {
+                    "id": "question-2",
+                    "prompt": "Qual unidade mede potência?",
+                    "explanation": "Watt mede potência.",
+                    "options": ["kWh", "Watt", "Volt"],
+                    "correct_option": 1,
+                },
+            ]
+        raise AssertionError(f"Unexpected table: {table}")
+
+
+def test_load_quiz_uses_all_published_questions_from_supabase():
+    client = FakeQuizContentClient()
+    quiz = SupabaseQuizRepository(client).load_quiz(PERSISTED_QUIZ_ID)
+
+    assert quiz.id == PERSISTED_QUIZ_ID
+    assert quiz.enabled is True
+    assert len(quiz.questions) == 2
+    assert quiz.questions[1].options == ("kWh", "Watt", "Volt")
+    assert quiz.questions[1].correct_option == 1
+    question_query = next(call for call in client.calls if call[1] == "quiz_questions")
+    assert question_query[2]["status"] == "eq.published"

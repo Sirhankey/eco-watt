@@ -8,8 +8,7 @@ from ecowatt.services.energy_calculator import calculate_total_household_consump
 from ecowatt.services.cost_calculator import calculate_cost
 from ecowatt.services.preset_service import validate_against_real_bill
 from ecowatt.services.catalog_repository import load_official_appliances, load_official_presets
-from ecowatt.services.personal_preset_service import apply_personal_preset, compare_authorized_presets, save_personal_preset
-from ecowatt.utils.features import feature_enabled
+from ecowatt.services.home_repository import HomeStorageUnavailable, ParticipantHomeRepository, home_to_appliances
 from ecowatt.components.cards import render_metric_card, render_cost_card, render_header, render_did_you_know, render_warning_badge
 from ecowatt.components.charts import (
     plot_household_distribution_donut,
@@ -26,9 +25,9 @@ st.markdown(
     <style>
     /* Botão compacto de configuração do card */
     [data-testid="stPopoverButton"] {
-        background: rgba(255, 255, 255, 0.04) !important;
-        border: 1px solid rgba(255, 255, 255, 0.12) !important;
-        color: #94a3b8 !important;
+        background: var(--secondary-background-color, rgba(127, 127, 127, 0.08)) !important;
+        border: 1px solid var(--border-color, rgba(127, 127, 127, 0.24)) !important;
+        color: inherit !important;
         font-size: 0.95rem !important;
         padding: 4px 8px !important;
         height: 30px !important;
@@ -40,9 +39,9 @@ st.markdown(
     }
 
     [data-testid="stPopoverButton"]:hover {
-        background: rgba(56, 189, 248, 0.12) !important;
-        border-color: #38bdf8 !important;
-        color: #38bdf8 !important;
+        background: var(--secondary-background-color, rgba(127, 127, 127, 0.14)) !important;
+        border-color: var(--primary-color, #ff4b4b) !important;
+        color: var(--primary-color, #ff4b4b) !important;
     }
 
     /* Efeito de hover no container do card */
@@ -76,8 +75,39 @@ render_header(
     icon="🏠",
 )
 
-# 1. Seção de Identificação do Aluno / Família e Presets Didáticos
+# 1. Carregar residência persistida e cenários disponíveis
 presets = load_official_presets()
+home_repository = ParticipantHomeRepository()
+if st.session_state.get("home_loaded_for_participant") != st.session_state.participant_id:
+    try:
+        saved_home = home_repository.get_home(st.session_state.participant_id)
+    except HomeStorageUnavailable as exc:
+        st.error(str(exc))
+        st.stop()
+    if saved_home:
+        st.session_state.family_name = saved_home["name"]
+        st.session_state.tariff = float(saved_home["tariff"])
+        st.session_state.rooms = list(saved_home["rooms"] or [])
+        st.session_state.appliances = home_to_appliances(saved_home)
+        st.session_state.active_preset_name = saved_home["name"]
+    elif presets:
+        default_preset = presets[0]
+        reset_to_preset(default_preset["id"])
+        st.session_state.family_name = f"Casa ({default_preset['name'].split('(')[0].strip()})"
+        st.session_state.rooms = sorted({appliance.category for appliance in st.session_state.appliances})
+    else:
+        st.session_state.appliances = load_official_appliances()[:4]
+        st.session_state.rooms = sorted({appliance.category for appliance in st.session_state.appliances}) or ["Sala"]
+        st.session_state.family_name = "Minha Casa"
+        st.session_state.active_preset_name = "Personalizado"
+    st.session_state.home_loaded_for_participant = st.session_state.participant_id
+
+try:
+    shared_homes = home_repository.list_shared_homes()
+except HomeStorageUnavailable as exc:
+    st.error(str(exc))
+    st.stop()
+
 preset_names = [p["name"] for p in presets]
 
 col_fam, col_preset, col_tariff = st.columns([1.2, 1.4, 0.9])
@@ -92,24 +122,24 @@ with col_fam:
 
 with col_preset:
     st.markdown("##### ⚡ Cenários Prontos")
-    sel_p_name = st.selectbox("Carregar perfil pré-configurado:", ["(Manter atual)"] + preset_names)
-    if sel_p_name != "(Manter atual)":
-        for p in presets:
-            if p["name"] == sel_p_name:
-                if st.button(f"📥 Aplicar '{p['name']}'"):
-                    reset_to_preset(p["id"])
-                    st.session_state.family_name = f"Casa ({p['name'].split('(')[0].strip()})"
-                    track_event("home_preset_applied", preset_id=p["id"])
-                    st.rerun()
-    personal_names = [preset["name"] for preset in st.session_state.get("personal_presets", [])]
-    if personal_names:
-        personal_name = st.selectbox("Aplicar preset pessoal:", ["(Nenhum)"] + personal_names)
-        if personal_name != "(Nenhum)" and st.button("📥 Aplicar preset pessoal"):
-            personal = next(preset for preset in st.session_state.personal_presets if preset["name"] == personal_name)
-            st.session_state.appliances = apply_personal_preset(personal)
-            st.session_state.active_preset_name = personal_name
-            track_event("personal_preset_applied", preset_id=personal["id"])
-            st.rerun()
+    preset_options = ["(Manter atual)"] + preset_names + [f"Compartilhado: {home['name']}" for home in shared_homes]
+    selected_preset = st.selectbox("Carregar cenário:", preset_options, key="home_preset_selection")
+    if selected_preset != "(Manter atual)" and st.button("Aplicar cenário", type="primary"):
+        official_preset = next((preset for preset in presets if preset["name"] == selected_preset), None)
+        shared_preset = next((home for home in shared_homes if f"Compartilhado: {home['name']}" == selected_preset), None)
+        if official_preset:
+            reset_to_preset(official_preset["id"])
+            st.session_state.family_name = f"Casa ({official_preset['name'].split('(')[0].strip()})"
+            st.session_state.rooms = sorted({appliance.category for appliance in st.session_state.appliances}) or st.session_state.rooms
+            track_event("home_preset_applied", preset_id=official_preset["id"])
+        elif shared_preset:
+            st.session_state.family_name = shared_preset["name"]
+            st.session_state.tariff = float(shared_preset["tariff"])
+            st.session_state.rooms = list(shared_preset["rooms"] or [])
+            st.session_state.appliances = home_to_appliances(shared_preset)
+            st.session_state.active_preset_name = shared_preset["name"]
+            track_event("shared_home_preset_applied", preset_id=shared_preset["id"])
+        st.rerun()
 
 with col_tariff:
     st.markdown("##### ⚙️ Tarifa Elétrica")
@@ -125,12 +155,12 @@ with col_tariff:
 st.divider()
 
 # 2. Gerenciamento do Inventário (Visual com Cards rápidos, Adicionar e Exportar/Importar JSON)
-tab_inventory, tab_quick_add, tab_custom_add, tab_rooms, tab_share, tab_validate = st.tabs([
+tab_inventory, tab_quick_add, tab_custom_add, tab_rooms, tab_save, tab_validate = st.tabs([
     "📋 Inventário Atual",
     "⚡ Adicionar Rápido (Cards)",
     "➕ Personalizado",
     "🚪 Gerenciar Cômodos",
-    "💾 Exportar / Compartilhar JSON",
+    "💾 Salvar minha casa",
     "🧾 Validar Fatura Real",
 ])
 
@@ -267,100 +297,23 @@ with tab_custom_add:
         st.success(f"'{new_name}' adicionado com sucesso ao cômodo '{new_cat}'!")
         st.rerun()
 
-with tab_share:
-    st.markdown("#### 💾 Compartilhar ou Guardar Casa em JSON")
-    st.caption("Como a aplicação roda em modo local, o aluno pode exportar seu inventário em JSON para entregar ao professor ou carregar o JSON de um colega!")
-
-    if feature_enabled("personal_presets", True):
-        with st.expander("Salvar preset pessoal", expanded=False):
-            preset_name = st.text_input("Nome do cenário:", key="personal_preset_name")
-            preset_visibility = st.selectbox("Visibilidade:", ["private", "event"], format_func=lambda value: "Privado" if value == "private" else "Evento")
-            comparison_consent = st.checkbox("Permitir comparação pseudônima no evento", disabled=preset_visibility == "private")
-            pseudonymous_label = st.text_input("Rótulo pseudônimo:", key="personal_preset_label", disabled=not comparison_consent)
-            if st.button("Salvar preset pessoal", type="primary"):
-                try:
-                    personal = save_personal_preset(
-                    preset_name,
-                    st.session_state.appliances,
-                    float(st.session_state.tariff),
-                    st.session_state.participant_id,
-                    comparison_consent,
-                    preset_visibility,
-                    pseudonymous_label,
-                )
-                    st.session_state.personal_presets.append(personal)
-                    track_event("personal_preset_saved", preset_id=personal["id"], monthly_kwh=personal["monthly_kwh"])
-                    st.success("Preset pessoal salvo. O preset oficial permanece somente leitura.")
-                except ValueError as exc:
-                    st.error(str(exc))
-
-    ranking = compare_authorized_presets(st.session_state.get("personal_presets", []))
-    if ranking["lowest"] and ranking["highest"]:
-        st.info(
-            f"Comparação educativa: menor consumo {ranking['lowest']['label']} ({ranking['lowest']['monthly_kwh']:.1f} kWh/mês) | "
-            f"maior consumo {ranking['highest']['label']} ({ranking['highest']['monthly_kwh']:.1f} kWh/mês)."
-        )
-
-    import json
-
-    export_data = {
-        "family_name": st.session_state.get("family_name", "Minha Casa"),
-        "tariff": st.session_state.tariff,
-        "rooms": st.session_state.rooms,
-        "appliances": [
-            {
-                "id": a.id,
-                "name": a.name,
-                "power_watts": a.power_watts,
-                "hours_per_day": a.hours_per_day,
-                "days_per_month": a.days_per_month,
-                "category": a.category,
-            }
-            for a in st.session_state.appliances
-        ],
-    }
-    json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
-
-    col_exp, col_imp = st.columns(2)
-    with col_exp:
-        st.markdown("##### 📤 Baixar JSON da Residência")
-        st.download_button(
-            label="💾 Baixar Arquivo casa_aluno.json",
-            data=json_str,
-            file_name=f"{st.session_state.get('family_name', 'casa').replace(' ', '_').lower()}.json",
-            mime="application/json",
-            on_click=lambda: track_event("inventory_exported"),
-        )
-        st.text_area("Pré-visualização do JSON:", json_str, height=160)
-
-    with col_imp:
-        st.markdown("##### 📥 Carregar JSON de Outro Aluno / Arquivo")
-        uploaded_json = st.file_uploader("Selecione um arquivo .json de inventário:", type=["json"])
-        if uploaded_json is not None:
-            try:
-                loaded = json.load(uploaded_json)
-                if st.button("📥 Importar e Substituir Inventário Atual"):
-                    st.session_state.family_name = loaded.get("family_name", "Casa Importada")
-                    st.session_state.tariff = float(loaded.get("tariff", 0.85))
-                    if "rooms" in loaded and isinstance(loaded["rooms"], list):
-                        st.session_state.rooms = loaded["rooms"]
-                    st.session_state.appliances = [
-                        Appliance(
-                            id=item.get("id", str(uuid.uuid4())[:8]),
-                            name=item["name"],
-                            power_watts=float(item["power_watts"]),
-                            hours_per_day=float(item["hours_per_day"]),
-                            days_per_month=float(item.get("days_per_month", 30.0)),
-                            category=item.get("category", "Geral"),
-                        )
-                        for item in loaded.get("appliances", [])
-                    ]
-                    track_event("inventory_imported", appliance_count=len(st.session_state.appliances), room_count=len(st.session_state.rooms))
-                    st.session_state.quick_add_notification = "🏠 Inventário residencial e cômodos importados com sucesso!"
-                    st.success("Casa importada com sucesso!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao ler arquivo JSON: {e}")
+with tab_save:
+    st.markdown("#### 💾 Salvar residência")
+    st.caption("A residência usa o nome informado em ‘Nome da Casa / Família’ e fica vinculada à sua conta.")
+    if st.button("Salvar minha casa", type="primary"):
+        try:
+            saved_home = home_repository.save_home(
+                st.session_state.participant_id,
+                st.session_state.family_name,
+                float(st.session_state.tariff),
+                list(st.session_state.rooms),
+                list(st.session_state.appliances),
+            )
+            st.session_state.family_name = saved_home["name"]
+            st.success("Sua residência foi salva na sua conta.")
+            track_event("participant_home_saved", home_id=saved_home["id"], monthly_kwh=saved_home["monthly_kwh"])
+        except (ValueError, HomeStorageUnavailable) as exc:
+            st.error(str(exc))
 
 with tab_inventory:
     st.markdown(f"#### 🏠 Residência: {st.session_state.get('family_name', 'Minha Residência')}")
@@ -508,18 +461,18 @@ with tab_inventory:
             # Bloco Container do Cômodo com borda colorida e cabeçalho informativo
             st.markdown(
                 f"""
-                <div style="background: rgba(255, 255, 255, 0.02); border-left: 4px solid {r_color}; border-top: 1px solid rgba(255,255,255,0.08); border-right: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 16px; margin: 18px 0 12px 0;">
+                <div style="background: var(--secondary-background-color, rgba(127,127,127,0.05)); border-left: 4px solid {r_color}; border-top: 1px solid var(--border-color, rgba(127,127,127,0.2)); border-right: 1px solid var(--border-color, rgba(127,127,127,0.2)); border-bottom: 1px solid var(--border-color, rgba(127,127,127,0.2)); border-radius: 12px; padding: 12px 16px; margin: 18px 0 12px 0;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 1.3rem;">{r_icon}</span>
-                            <span style="font-size: 1.15rem; font-weight: 700; color: #f8fafc;">{room_name}</span>
+                            <span style="font-size: 1.15rem; font-weight: 700; color: inherit;">{room_name}</span>
                             <span style="background: {r_bg}; color: {r_color}; border: 1px solid {r_color}44; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
                                 {len(room_items_with_kwh)} {'aparelho' if len(room_items_with_kwh) == 1 else 'aparelhos'}
                             </span>
                         </div>
-                        <div style="font-size: 0.85rem; color: #cbd5e1; font-weight: 500;">
+                        <div style="font-size: 0.85rem; color: inherit; opacity: 0.9; font-weight: 500;">
                             Total: <strong style="color: {r_color}; font-size: 0.95rem;">{room_total_kwh:.1f} kWh/mês</strong> 
-                            <span style="color: #64748b;">&bull;</span> 
+                            <span style="opacity: 0.55;">&bull;</span>
                             <span style="color: #10b981; font-weight: 600;">R$ {room_total_cost:.2f}/mês</span>
                         </div>
                     </div>
@@ -595,14 +548,14 @@ with tab_inventory:
                                 f"</div>"
                                 f"<div style='min-width: 0;'>"
                                 f"<div style='display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>"
-                                f"<span style='color: #f8fafc; font-size: 1rem; font-weight: 700; word-break: break-word;'>{app.name}</span>"
+                                f"<span style='color: inherit; font-size: 1rem; font-weight: 700; word-break: break-word;'>{app.name}</span>"
                                 f"{top_badge}"
                                 f"</div>"
-                                f"<div style='color: #94a3b8; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 3px;'>"
-                                f"<span>⚡ <strong style='color: #f1f5f9;'>{app.power_watts:.0f} W</strong></span>"
-                                f"<span style='color: #475569;'>&bull;</span>"
+                                f"<div style='color: inherit; opacity: 0.88; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 3px;'>"
+                                f"<span>⚡ <strong style='color: inherit; opacity: 1;'>{app.power_watts:.0f} W</strong></span>"
+                                f"<span style='opacity: 0.55;'>&bull;</span>"
                                 f"<span>⏱️ {app.hours_per_day:.1f} h/d</span>"
-                                f"<span style='color: #475569;'>&bull;</span>"
+                                f"<span style='opacity: 0.55;'>&bull;</span>"
                                 f"<span>📅 {app.days_per_month:.0f} d/m</span>"
                                 f"</div>"
                                 f"</div>"
@@ -616,10 +569,10 @@ with tab_inventory:
                         with c_card_stats:
                             stats_html = (
                                 f"<div style='margin-top: 10px;'>"
-                                f"<div style='color: #38bdf8; font-weight: 800; font-size: 1.05rem; letter-spacing: -0.02em;'>"
+                                f"<div style='color: var(--primary-color, #c02626); font-weight: 800; font-size: 1.05rem;'>"
                                 f"{app_kwh:.1f} kWh/mês"
                                 f"</div>"
-                                f"<div style='color: #10b981; font-size: 0.88rem; font-weight: 700; margin-top: 1px;'>"
+                                f"<div style='color: inherit; font-size: 0.88rem; font-weight: 700; margin-top: 1px;'>"
                                 f"R$ {app_cost:.2f}/mês"
                                 f"</div>"
                                 f"</div>"
@@ -668,7 +621,7 @@ with tab_validate:
         f"<p>• <strong>Consumo Estimado da Fatura Real:</strong> ~ {val_res['inferred_real_kwh']:.1f} kWh (R$ {val_res['real_bill_reais']:.2f})</p>"
         f"<p>• <strong>Diferença Identificada:</strong> {abs(val_res['diff_kwh']):.1f} kWh (R$ {abs(val_res['diff_cost']):.2f})</p>"
         f"<hr style='border-color: rgba(255,255,255,0.1);'/>"
-        f"<p style='color: #f8fafc; font-size: 0.95rem;'>💡 {val_res['explanation']}</p>"
+        f"<p style='color: inherit; font-size: 0.95rem;'>💡 {val_res['explanation']}</p>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -727,11 +680,11 @@ with col_rank:
                 f"<div>"
                 f"<span style='font-size: 1.2rem; margin-right: 6px;'>{medal}</span>"
                 f"<strong>{item['name']}</strong>"
-                f"<div style='font-size: 0.8rem; color: #94a3b8; margin-left: 32px;'>{item['category']}</div>"
+                f"<div style='font-size: 0.8rem; color: inherit; opacity: 0.88; margin-left: 32px;'>{item['category']}</div>"
                 f"</div>"
                 f"<div style='text-align: right;'>"
                 f"<span style='font-weight: 700; color: #38bdf8;'>{item['monthly_kwh']:.1f} kWh</span>"
-                f"<span style='font-size: 0.85rem; color: #cbd5e1;'> ({item['percentage']}%)</span>"
+                f"<span style='font-size: 0.85rem; color: inherit; opacity: 0.88;'> ({item['percentage']}%)</span>"
                 f"<div style='font-size: 0.8rem; color: #10b981;'>R$ {item_cost:.2f}/mês</div>"
                 f"</div>"
                 f"</div>",
