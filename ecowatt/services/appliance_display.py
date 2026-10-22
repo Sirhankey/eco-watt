@@ -52,6 +52,10 @@ ICON_BY_ID = {
     "electric_oven": "microwave",
     "electric_grill": "microwave",
     "sandwich_maker": "microwave",
+    "hair_straightener": "hair_dryer",
+    "hair_clippers": "hair_dryer",
+    "robot_vacuum": "vacuum_cleaner",
+    "electric_pressure_cooker": "rice_cooker",
 }
 
 
