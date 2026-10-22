@@ -6,9 +6,8 @@ from ecowatt.models.appliance import Appliance
 from ecowatt.services.energy_calculator import calculate_total_household_consumption
 from ecowatt.services.cost_calculator import calculate_cost
 from ecowatt.services.appliance_display import appliance_icon_path
-from ecowatt.services.catalog_repository import load_official_appliances
+from ecowatt.services.catalog_repository import load_official_appliances, load_official_presets
 from ecowatt.services.preset_service import (
-    load_presets,
     validate_against_real_bill,
 )
 from ecowatt.components.cards import render_metric_card, render_cost_card, render_header, render_did_you_know, render_warning_badge
@@ -97,7 +96,7 @@ render_header(
 )
 
 # 1. Seção de Identificação do Aluno / Família e Presets Didáticos
-presets = load_presets()
+presets = load_official_presets()
 preset_names = [p["name"] for p in presets]
 
 col_fam, col_preset, col_tariff = st.columns([1.2, 1.4, 0.9])

@@ -16,6 +16,11 @@ PERSISTED_QUESTION_IDS = (
 )
 
 
+QUESTIONS_PER_ATTEMPT = 10
+DIFFICULTIES = ("easy", "medium", "hard")
+DIFFICULTY_QUOTA = {"easy": 4, "medium": 4, "hard": 2}
+
+
 class QuizPersistenceUnavailable(RuntimeError):
     """Raised when quiz attempts cannot be persisted or restored."""
 
@@ -63,7 +68,7 @@ class SupabaseQuizRepository:
             "GET",
             "quiz_questions",
             filters={
-                "select": "id,prompt,explanation,options,correct_option",
+                "select": "id,prompt,explanation,options,correct_option,difficulty",
                 "quiz_id": f"eq.{quiz_id}",
                 "status": "eq.published",
                 "order": "created_at.asc,id.asc",
@@ -82,6 +87,7 @@ class SupabaseQuizRepository:
                     options=tuple(str(option) for option in row["options"]),
                     correct_option=int(row["correct_option"]),
                     explanation=str(row["explanation"]),
+                    difficulty=str(row.get("difficulty") or "medium"),
                 )
                 for row in question_rows
             ]
@@ -181,10 +187,13 @@ class QuizQuestion:
     options: tuple[str, ...]
     correct_option: int
     explanation: str
+    difficulty: str = "medium"
 
     def __post_init__(self) -> None:
         if len(self.options) < 2 or self.correct_option not in range(len(self.options)):
             raise ValueError("Pergunta de quiz invalida.")
+        if self.difficulty not in DIFFICULTIES:
+            raise ValueError("Dificuldade de pergunta invalida.")
         if not self.prompt.strip() or not self.explanation.strip():
             raise ValueError("Pergunta e explicacao sao obrigatorias.")
 
@@ -216,6 +225,25 @@ class QuizService:
         self.repository = repository
         self.attempts: dict[tuple[str, str], QuizAttempt] = {}
 
+    def _select_questions(self, questions: list[QuizQuestion]) -> list[QuizQuestion]:
+        """Pick up to QUESTIONS_PER_ATTEMPT questions honoring the difficulty quota."""
+        if len(questions) <= QUESTIONS_PER_ATTEMPT:
+            selected = list(questions)
+        else:
+            selected = []
+            remaining = list(questions)
+            for difficulty in DIFFICULTIES:
+                pool = [question for question in remaining if question.difficulty == difficulty]
+                picked = self._random.sample(pool, min(DIFFICULTY_QUOTA[difficulty], len(pool)))
+                selected.extend(picked)
+                remaining = [question for question in remaining if question not in picked]
+            # Fill any shortfall (a tier with too few questions) from what is left.
+            missing = QUESTIONS_PER_ATTEMPT - len(selected)
+            if missing > 0:
+                selected.extend(self._random.sample(remaining, missing))
+        self._random.shuffle(selected)
+        return selected
+
     def start(self, quiz: Quiz, session_id: str, participant_id: str | None = None) -> QuizAttempt:
         if not quiz.enabled:
             raise ValueError("Este quiz esta desabilitado.")
@@ -226,8 +254,7 @@ class QuizService:
                 raise ValueError("Este quiz esta desabilitado.")
             existing = self.repository.find_attempt(quiz.id, participant_id)
             if existing is None:
-                question_ids = [question.id for question in quiz.questions]
-                self._random.shuffle(question_ids)
+                question_ids = [question.id for question in self._select_questions(quiz.questions)]
                 try:
                     existing = self.repository.create_attempt(quiz.id, participant_id, session_id, question_ids)
                 except ExistingQuizAttempt:
@@ -239,8 +266,7 @@ class QuizService:
         existing = self.attempts.get((quiz.id, session_id))
         if existing is not None:
             return existing
-        questions = list(quiz.questions)
-        self._random.shuffle(questions)
+        questions = self._select_questions(quiz.questions)
         attempt = QuizAttempt(str(uuid4()), quiz.id, session_id, [question.id for question in questions])
         self.attempts[(quiz.id, session_id)] = attempt
         return attempt

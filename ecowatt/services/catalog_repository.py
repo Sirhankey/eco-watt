@@ -11,7 +11,7 @@ import streamlit as st
 
 from ecowatt.models.appliance import Appliance
 from ecowatt.models.pc_component import PCComponent
-from ecowatt.services.appliance_display import normalize_category, sort_appliances
+from ecowatt.services.appliance_display import normalize_category, sort_appliances, sort_presets
 from ecowatt.services.preset_service import load_default_appliances, load_facts, load_presets
 from ecowatt.services.analytics_service import is_supabase_configured
 from ecowatt.utils.features import feature_enabled
@@ -158,6 +158,6 @@ def load_official_presets() -> List[Dict[str, Any]]:
             for preset in records:
                 preset["appliances"] = items_by_preset.get(str(preset["id"]), [])
             _set_source("Supabase")
-            return records
+            return sort_presets(records)
     _mark_local_fallback()
-    return load_presets()
+    return sort_presets(load_presets())

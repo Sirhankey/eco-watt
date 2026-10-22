@@ -72,6 +72,21 @@ def sort_appliances(appliances: List[Appliance]) -> List[Appliance]:
     )
 
 
+PRESET_ORDER = [
+    "casa_tipica", "casa_sustentavel", "apartamento_pequeno", "familia_grande",
+    "casa_calor", "home_office", "cozinha_completa", "quarto_gamer",
+]
+_PRESET_RANK = {preset_id: index for index, preset_id in enumerate(PRESET_ORDER)}
+
+
+def sort_presets(presets: List[dict]) -> List[dict]:
+    """Curated presets first (the first one is the default home); unknown ids follow by name."""
+    return sorted(
+        presets,
+        key=lambda item: (_PRESET_RANK.get(str(item["id"]), len(_PRESET_RANK)), str(item.get("name", "")).casefold()),
+    )
+
+
 def appliance_icon_path(appliance_id: str) -> Optional[Path]:
     stem = ICON_BY_ID.get(appliance_id, appliance_id)
     for candidate in (stem, GENERIC_ICON):

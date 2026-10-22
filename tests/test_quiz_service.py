@@ -197,3 +197,49 @@ def test_load_quiz_uses_all_published_questions_from_supabase():
     assert quiz.questions[1].correct_option == 1
     question_query = next(call for call in client.calls if call[1] == "quiz_questions")
     assert question_query[2]["status"] == "eq.published"
+
+
+def _pool():
+    levels = ["easy"] * 12 + ["medium"] * 8 + ["hard"] * 4
+    return Quiz("q-pool", "Energia", [
+        QuizQuestion(f"q{i}", f"Pergunta {i}?", ("a", "b"), 0, "Explicacao.", level)
+        for i, level in enumerate(levels)
+    ])
+
+
+def test_attempt_selects_ten_questions_with_difficulty_mix():
+    current = _pool()
+    by_id = {question.id: question for question in current.questions}
+
+    attempt = QuizService().start(current, "session-mix")
+
+    levels = [by_id[question_id].difficulty for question_id in attempt.question_ids]
+    assert len(attempt.question_ids) == 10
+    assert len(set(attempt.question_ids)) == 10
+    assert (levels.count("easy"), levels.count("medium"), levels.count("hard")) == (4, 4, 2)
+
+
+def test_selection_fills_shortfall_when_a_difficulty_has_too_few_questions():
+    current = Quiz("q-short", "Energia", [
+        QuizQuestion(f"q{i}", f"Pergunta {i}?", ("a", "b"), 0, "Explicacao.", "easy" if i < 14 else "hard")
+        for i in range(15)
+    ])
+
+    attempt = QuizService().start(current, "session-short")
+
+    assert len(attempt.question_ids) == 10
+    assert len(set(attempt.question_ids)) == 10
+
+
+def test_different_sessions_can_receive_different_question_sets():
+    current = _pool()
+    service = QuizService()
+
+    sets = {frozenset(service.start(current, f"session-{n}").question_ids) for n in range(10)}
+
+    assert len(sets) > 1
+
+
+def test_invalid_difficulty_is_rejected():
+    with pytest.raises(ValueError):
+        QuizQuestion("bad", "Pergunta?", ("a", "b"), 0, "Explicacao.", "impossible")
