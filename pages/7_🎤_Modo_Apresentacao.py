@@ -3,6 +3,7 @@ import streamlit as st
 from ecowatt.utils.logging import track_event
 from ecowatt.utils.session import init_session_state
 from ecowatt.services.energy_calculator import calculate_monthly_kwh
+from ecowatt.services.catalog_repository import load_official_appliances
 from ecowatt.services.cost_calculator import calculate_cost
 from ecowatt.components.cards import render_metric_card, render_cost_card
 
@@ -24,32 +25,47 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-quick_items = {
-    "🚿 Chuveiro Elétrico Potente": {"power": 5500.0, "time_min": 15, "icon": "🚿", "hint": "Alta potência concentrada em poucos minutos."},
-    "❄️ Ar-Condicionado Quarto": {"power": 900.0, "time_min": 480, "icon": "❄️", "hint": "Potência média, mas ligado a noite inteira (8h)."},
-    "🎮 Computador Gamer Completo": {"power": 380.0, "time_min": 240, "icon": "🎮", "hint": "Jogatina de 4 horas com placa de vídeo dedicada."},
-    "💡 Lâmpada Incandescente Antiga": {"power": 60.0, "time_min": 360, "icon": "💡", "hint": "6 horas ligada iluminando a sala."},
-    "🌱 Lâmpada LED Moderna": {"power": 9.0, "time_min": 360, "icon": "🌱", "hint": "Ilumina o mesmo que a incandescente, mas gasta 85% menos."},
-}
+appliances = {appliance.name: appliance for appliance in load_official_appliances()}
 
-selected_demo = st.selectbox("Escolha um aparelho para demonstrar:", list(quick_items.keys()))
+selected_demo = st.selectbox("Escolha um aparelho para demonstrar:", list(appliances.keys()))
 
-item_info = quick_items[selected_demo]
+selected_appliance = appliances[selected_demo]
 
-col_in1, col_in2 = st.columns(2)
+col_in1, col_in2, col_in3 = st.columns(3)
 with col_in1:
-    power_w = st.number_input("Potência do Aparelho (Watts):", min_value=1.0, max_value=25000.0, value=item_info["power"], step=50.0)
+    power_w = st.number_input(
+        "Potência do Aparelho (Watts):",
+        min_value=1.0,
+        max_value=25000.0,
+        value=min(max(float(selected_appliance.power_watts), 1.0), 25000.0),
+        step=50.0,
+    )
 with col_in2:
-    time_min = st.number_input("Tempo de Uso Diário (Minutos):", min_value=1, max_value=1440, value=item_info["time_min"], step=5)
+    time_min = st.number_input(
+        "Tempo de Uso Diário (Minutos):",
+        min_value=1,
+        max_value=1440,
+        value=min(max(round(selected_appliance.hours_per_day * 60), 1), 1440),
+        step=5,
+    )
+with col_in3:
+    days_month = st.number_input(
+        "Dias de Uso no Mês:",
+        min_value=1,
+        max_value=31,
+        value=min(max(round(selected_appliance.days_per_month), 1), 31),
+        step=1,
+    )
 
 hours_day = time_min / 60.0
-monthly_kwh = calculate_monthly_kwh(power_w, hours_day, days_per_month=30)
+monthly_kwh = calculate_monthly_kwh(power_w, hours_day, days_per_month=days_month)
 monthly_cost = calculate_cost(monthly_kwh, st.session_state.tariff)
 annual_cost = calculate_cost(monthly_kwh * 12.0, st.session_state.tariff)
 
-daily_cost = round(monthly_cost / 30.0, 2)
+daily_cost = round(monthly_cost / days_month, 2)
 
-st.markdown(f"*{item_info['hint']}*")
+if selected_appliance.description:
+    st.markdown(f"*{selected_appliance.description}*")
 
 st.markdown(
     """
@@ -65,7 +81,7 @@ with res1:
     render_metric_card(
         "Consumo de Energia",
         f"{monthly_kwh:.1f} kWh",
-        f"Diário: {monthly_kwh/30.0:.2f} kWh • Anual: {monthly_kwh*12:.0f} kWh",
+        f"Diário: {monthly_kwh/days_month:.2f} kWh • Anual: {monthly_kwh*12:.0f} kWh",
         border_color="#38bdf8",
     )
 with res2:
@@ -90,7 +106,7 @@ st.markdown(
     f"<div style='background: rgba(14, 165, 233, 0.1); border: 2px solid #38bdf8; border-radius: 12px; padding: 20px; text-align: center; margin-top: 20px;'>"
     f"<h3 style='color: #f8fafc; margin: 0 0 10px 0;'>⚡ Frase de Impacto para a Apresentação:</h3>"
     f"<p style='font-size: 1.25rem; color: #38bdf8; font-weight: 700; margin: 0;'>"
-    f"Deixar este aparelho ligado por apenas {time_min} minutos por dia custa R$ {monthly_cost:.2f} no mês e R$ {annual_cost:.2f} todos os anos!"
+    f"Deixar este aparelho ligado por apenas {time_min} minutos por dia, {days_month} dias no mês, custa R$ {monthly_cost:.2f} no mês e R$ {annual_cost:.2f} todos os anos!"
     f"</p>"
     f"</div>",
     unsafe_allow_html=True,
