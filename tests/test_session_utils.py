@@ -41,7 +41,7 @@ def test_authenticated_profile_is_restored_into_shared_session_state(monkeypatch
         participant_role="Aluno",
         class_group="8A",
         age_group="11–14",
-        gender="Mulher",
+        gender="Feminino",
     )
 
     session_utils._set_authenticated_participant(participant)

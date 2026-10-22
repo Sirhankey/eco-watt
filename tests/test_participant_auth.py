@@ -118,7 +118,7 @@ def test_profile_is_required_and_persisted_for_later_logins():
             "Aluno",
             " ",
             "11–14",
-            "Prefiro não responder",
+            "Feminino",
         )
 
     service.complete_profile(
@@ -127,7 +127,7 @@ def test_profile_is_required_and_persisted_for_later_logins():
         "Aluno",
         " 8A ",
         "11–14",
-        "Mulher",
+        "Feminino",
     )
     logged_in = service.login("perfil-01", "senha-segura")
 
@@ -148,11 +148,29 @@ def test_non_student_profile_does_not_require_or_store_class_group():
         "Professor",
         "Turma que deve ser descartada",
         "40+",
-        "Homem",
+        "Masculino",
     )
 
     saved = repository.get_participant(account.participant_id)
     assert saved["class_group"] is None
+
+
+@pytest.mark.parametrize(
+    "name, class_group, gender",
+    [
+        ("😋😋", "8A", "Feminino"),
+        ("Ana Silva", "😋😋", "Feminino"),
+        ("Ana 123", "8A", "Feminino"),
+        ("Ana Silva", "8A", "Outro"),
+        ("Ana Silva", "8A", "Mulher"),
+    ],
+)
+def test_profile_rejects_emojis_digits_in_name_and_unknown_gender(name, class_group, gender):
+    service = ParticipantAuthService(FakeParticipantRepository())
+    account = service.register("perfil-03", "senha-segura")
+
+    with pytest.raises(ValueError):
+        service.complete_profile(account.participant_id, name, "Aluno", class_group, "11–14", gender)
 
 
 def test_malformed_username_cannot_authenticate_a_valid_reserved_name():

@@ -20,7 +20,9 @@ PASSWORD_MIN_LENGTH = 6
 PASSWORD_MAX_LENGTH = 128
 PARTICIPANT_ROLES = ("Aluno", "Professor", "Responsável", "Convidado")
 AGE_GROUP_OPTIONS = ("Até 10", "11–14", "15–17", "18–24", "25–39", "40+", "Prefiro não responder")
-GENDER_OPTIONS = ("Mulher", "Homem", "Não binário", "Outro", "Prefiro não responder")
+GENDER_OPTIONS = ("Feminino", "Masculino")
+NAME_EXTRA_CHARS = " .'’-"
+CLASS_EXTRA_CHARS = " .-/ºª°"
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_WINDOW_SECONDS = 60
 LOGIN_LOCK_SECONDS = 60
@@ -125,10 +127,14 @@ def validate_participant_profile(
     clean_class = class_group.strip() if isinstance(class_group, str) else ""
     if not 2 <= len(clean_name) <= 120:
         raise ValueError("Informe seu nome completo (de 2 a 120 caracteres).")
+    if not all(char.isalpha() or char in NAME_EXTRA_CHARS for char in clean_name):
+        raise ValueError("Use apenas letras, espaços, hífen ou apóstrofo no nome (sem emojis ou números).")
     if participant_role not in PARTICIPANT_ROLES:
         raise ValueError("Selecione um perfil válido.")
     if participant_role == "Aluno" and not 1 <= len(clean_class) <= 40:
         raise ValueError("Informe sua turma para continuar.")
+    if not all(char.isalnum() or char in CLASS_EXTRA_CHARS for char in clean_class):
+        raise ValueError("Use apenas letras, números e espaços na turma (sem emojis).")
     if participant_role != "Aluno":
         clean_class = ""
     if age_group not in AGE_GROUP_OPTIONS:
