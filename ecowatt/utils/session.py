@@ -400,6 +400,7 @@ def _render_feedback_form() -> None:
             rating = st.select_slider(
                 "Como você avalia a experiência?",
                 options=[1, 2, 3, 4, 5],
+                value=5,
                 format_func=lambda value: "⭐" * value,
             )
             knew_kwh = st.radio(
