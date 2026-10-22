@@ -8,6 +8,7 @@ from ecowatt.services.participant_auth import (
     LoginRateLimited,
     ParticipantAuthService,
     UsernameAlreadyTaken,
+    hash_password,
     hash_session_token,
     normalize_username,
     verify_password,
@@ -216,3 +217,34 @@ def test_login_failure_limit_blocks_attempts_temporarily():
 
     current[0] += 61
     assert service.login("aluno-03", "senha-segura") is not None
+
+def test_password_reset_flow_keeps_the_existing_profile():
+    repository = FakeParticipantRepository()
+    service = ParticipantAuthService(repository)
+    account = service.register("perfil-reset", "senha-antiga")
+    service.complete_profile(account.participant_id, "Daniel Guimarães", "Responsável", "", "25–39", "Masculino")
+
+    stored = repository.participants["perfil-reset"]
+    stored["password_hash"] = hash_password("temporaria")
+    stored["must_change_password"] = True
+
+    logged_in = service.login("perfil-reset", "temporaria")
+    assert logged_in.must_change_password
+    assert logged_in.profile_complete
+
+    service.change_password(logged_in.participant_id, "senha-nova")
+    restored = service.restore(logged_in.session_token)
+
+    assert not restored.must_change_password
+    assert restored.profile_complete
+
+
+def test_legacy_gender_value_makes_profile_incomplete():
+    repository = FakeParticipantRepository()
+    service = ParticipantAuthService(repository)
+    account = service.register("perfil-legado", "senha-segura")
+    repository.participants["perfil-legado"].update(
+        full_name="Daniel", participant_role="Responsável", class_group=None, age_group="25–39", gender="Homem"
+    )
+
+    assert not service.login("perfil-legado", "senha-segura").profile_complete

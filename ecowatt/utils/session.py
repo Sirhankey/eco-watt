@@ -17,6 +17,15 @@ from ecowatt.services.participant_auth import (
     normalize_username,
 )
 from ecowatt.utils.features import feature_enabled
+from ecowatt.services.feedback_service import (
+    ExperienceFeedbackRepository,
+    FeedbackStorageUnavailable,
+    HELPED_BILL_OPTIONS,
+    KNEW_KWH_OPTIONS,
+    LEARNED_MAX_LENGTH,
+    MAIN_INTEREST_OPTIONS,
+    build_feedback,
+)
 from ecowatt.utils.logging import track_event
 
 IDENTITY_COOKIE = "ecowatt_identity"
@@ -66,6 +75,7 @@ def _remove_auth_cookie(controller: CookieController) -> None:
     st.session_state.pop("age_group", None)
     st.session_state.pop("gender", None)
     st.session_state.pop("profile_complete", None)
+    st.session_state.pop("feedback_submitted", None)
 
 
 def _render_authentication(controller: CookieController, service: ParticipantAuthService) -> None:
@@ -349,7 +359,7 @@ def init_session_state():
             _remove_auth_cookie(cookie_controller)
             st.rerun()
 
-    # _render_feedback_form()
+    _render_feedback_form()
 
 
 def _render_feedback_form() -> None:
@@ -370,7 +380,17 @@ def _render_feedback_form() -> None:
         """,
         unsafe_allow_html=True,
     )
-    if st.session_state.get("feedback_submitted", False):
+    participant_id = st.session_state.participant_id
+    repository = st.session_state.get("feedback_repository")
+    if repository is None:
+        repository = ExperienceFeedbackRepository()
+        st.session_state.feedback_repository = repository
+    if "feedback_submitted" not in st.session_state:
+        try:
+            st.session_state.feedback_submitted = repository.has_feedback(participant_id)
+        except FeedbackStorageUnavailable:
+            return
+    if st.session_state.feedback_submitted:
         st.sidebar.success("Avaliação registrada. Obrigado!")
         return
 
@@ -384,30 +404,36 @@ def _render_feedback_form() -> None:
             )
             knew_kwh = st.radio(
                 "Você já sabia o que era kWh antes de usar o aplicativo?",
-                ["Sim", "Não", "Não tenho certeza"],
+                KNEW_KWH_OPTIONS,
             )
             helped_bill = st.radio(
                 "O aplicativo ajudou você a entender sua conta de energia?",
-                ["Sim", "Mais ou menos", "Não", "Não se aplica"],
+                HELPED_BILL_OPTIONS,
             )
             main_interest = st.selectbox(
                 "Qual área você achou mais interessante?",
-                ["Calculadora", "Minha Casa", "PC Builder", "Comparador", "Eficiência", "Modo Apresentação"],
+                MAIN_INTEREST_OPTIONS,
             )
             learned = st.text_area(
                 "O que você aprendeu? (opcional)",
-                max_chars=300,
+                max_chars=LEARNED_MAX_LENGTH,
             )
             submitted = st.form_submit_button("Enviar avaliação", type="primary", use_container_width=True)
 
         if submitted:
+            try:
+                feedback = build_feedback(rating, knew_kwh, helped_bill, main_interest, learned)
+                repository.save_feedback(participant_id, feedback)
+            except (ValueError, FeedbackStorageUnavailable) as exc:
+                st.error(str(exc))
+                return
             track_event(
                 "experience_feedback_submitted",
                 rating=rating,
                 knew_kwh=knew_kwh,
                 helped_bill=helped_bill,
                 main_interest=main_interest,
-                learned=learned.strip() or None,
+                learned=feedback["learned"],
             )
             st.session_state.feedback_submitted = True
             st.rerun()
