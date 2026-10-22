@@ -2,13 +2,15 @@
 import streamlit as st
 import uuid
 from ecowatt.utils.session import init_session_state, reset_to_preset
-from ecowatt.utils.logging import track_event, track_event_on_change
 from ecowatt.models.appliance import Appliance
 from ecowatt.services.energy_calculator import calculate_total_household_consumption
 from ecowatt.services.cost_calculator import calculate_cost
-from ecowatt.services.preset_service import validate_against_real_bill
-from ecowatt.services.catalog_repository import load_official_appliances, load_official_presets
-from ecowatt.services.home_repository import HomeStorageUnavailable, ParticipantHomeRepository, home_to_appliances
+from ecowatt.services.appliance_display import appliance_icon_path
+from ecowatt.services.catalog_repository import load_official_appliances
+from ecowatt.services.preset_service import (
+    load_presets,
+    validate_against_real_bill,
+)
 from ecowatt.components.cards import render_metric_card, render_cost_card, render_header, render_did_you_know, render_warning_badge
 from ecowatt.components.charts import (
     plot_household_distribution_donut,
@@ -17,52 +19,71 @@ from ecowatt.components.charts import (
 
 st.set_page_config(page_title="Minha Casa — EcoWatt", page_icon="🏠", layout="wide")
 init_session_state()
-track_event("page_view", page="home_simulator")
 
 # CSS responsivo para botões de ação e cards no mobile e desktop
 st.markdown(
     """
     <style>
-    /* Botão compacto de configuração do card */
-    [data-testid="stPopoverButton"] {
-        background: var(--secondary-background-color, rgba(127, 127, 127, 0.08)) !important;
-        border: 1px solid var(--border-color, rgba(127, 127, 127, 0.24)) !important;
-        color: inherit !important;
-        font-size: 0.95rem !important;
-        padding: 4px 8px !important;
+    /* Estilização para o botão de exclusão 'X' circular */
+    div[data-testid="stColumn"]:has(button[key^="del_"]) {
+        min-width: auto !important;
+        flex: 0 0 auto !important;
+    }
+
+    button[key^="del_"] {
+        padding: 0 !important;
+        height: 28px !important;
+        min-height: 28px !important;
+        width: 28px !important;
+        max-width: 28px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 0.82rem !important;
+        font-weight: 700 !important;
+        border-radius: 50% !important;
+        border: 1.5px solid rgba(239, 68, 68, 0.4) !important;
+        background: rgba(239, 68, 68, 0.1) !important;
+        color: #ef4444 !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+
+    button[key^="del_"]:hover {
+        background: #ef4444 !important;
+        color: #ffffff !important;
+        border-color: #dc2626 !important;
+        transform: scale(1.1);
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important;
+    }
+
+    /* Botão de editar/abrir card */
+    button[key^="btn_edit_"] {
+        background: rgba(255, 255, 255, 0.04) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        color: #94a3b8 !important;
+        font-size: 0.8rem !important;
+        padding: 4px 10px !important;
         height: 30px !important;
         min-height: 30px !important;
         border-radius: 6px !important;
         transition: all 0.15s ease !important;
         margin-top: 4px !important;
-        margin-left: auto !important;
     }
 
-    [data-testid="stPopoverButton"]:hover {
-        background: var(--secondary-background-color, rgba(127, 127, 127, 0.14)) !important;
-        border-color: var(--primary-color, #ff4b4b) !important;
-        color: var(--primary-color, #ff4b4b) !important;
+    button[key^="btn_edit_"]:hover {
+        background: rgba(56, 189, 248, 0.12) !important;
+        border-color: #38bdf8 !important;
+        color: #38bdf8 !important;
     }
 
     /* Efeito de hover no container do card */
-    div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stPopoverButton"]) {
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(button[key^="del_"]) {
         transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
         border-radius: 12px !important;
     }
-    div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stPopoverButton"]):hover {
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(button[key^="del_"]):hover {
         border-color: rgba(56, 189, 248, 0.4) !important;
         box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.35) !important;
-    }
-
-    /* Regras específicas para telas pequenas / Mobile */
-    @media (max-width: 768px) {
-        [data-testid="stPopoverButton"] {
-            width: 42px !important;
-            min-width: 42px !important;
-            height: 30px !important;
-            min-height: 30px !important;
-            padding: 4px 8px !important;
-        }
     }
     </style>
     """,
@@ -75,39 +96,8 @@ render_header(
     icon="🏠",
 )
 
-# 1. Carregar residência persistida e cenários disponíveis
-presets = load_official_presets()
-home_repository = ParticipantHomeRepository()
-if st.session_state.get("home_loaded_for_participant") != st.session_state.participant_id:
-    try:
-        saved_home = home_repository.get_home(st.session_state.participant_id)
-    except HomeStorageUnavailable as exc:
-        st.error(str(exc))
-        st.stop()
-    if saved_home:
-        st.session_state.family_name = saved_home["name"]
-        st.session_state.tariff = float(saved_home["tariff"])
-        st.session_state.rooms = list(saved_home["rooms"] or [])
-        st.session_state.appliances = home_to_appliances(saved_home)
-        st.session_state.active_preset_name = saved_home["name"]
-    elif presets:
-        default_preset = presets[0]
-        reset_to_preset(default_preset["id"])
-        st.session_state.family_name = f"Casa ({default_preset['name'].split('(')[0].strip()})"
-        st.session_state.rooms = sorted({appliance.category for appliance in st.session_state.appliances})
-    else:
-        st.session_state.appliances = load_official_appliances()[:4]
-        st.session_state.rooms = sorted({appliance.category for appliance in st.session_state.appliances}) or ["Sala"]
-        st.session_state.family_name = "Minha Casa"
-        st.session_state.active_preset_name = "Personalizado"
-    st.session_state.home_loaded_for_participant = st.session_state.participant_id
-
-try:
-    shared_homes = home_repository.list_shared_homes()
-except HomeStorageUnavailable as exc:
-    st.error(str(exc))
-    st.stop()
-
+# 1. Seção de Identificação do Aluno / Família e Presets Didáticos
+presets = load_presets()
 preset_names = [p["name"] for p in presets]
 
 col_fam, col_preset, col_tariff = st.columns([1.2, 1.4, 0.9])
@@ -122,24 +112,14 @@ with col_fam:
 
 with col_preset:
     st.markdown("##### ⚡ Cenários Prontos")
-    preset_options = ["(Manter atual)"] + preset_names + [f"Compartilhado: {home['name']}" for home in shared_homes]
-    selected_preset = st.selectbox("Carregar cenário:", preset_options, key="home_preset_selection")
-    if selected_preset != "(Manter atual)" and st.button("Aplicar cenário", type="primary"):
-        official_preset = next((preset for preset in presets if preset["name"] == selected_preset), None)
-        shared_preset = next((home for home in shared_homes if f"Compartilhado: {home['name']}" == selected_preset), None)
-        if official_preset:
-            reset_to_preset(official_preset["id"])
-            st.session_state.family_name = f"Casa ({official_preset['name'].split('(')[0].strip()})"
-            st.session_state.rooms = sorted({appliance.category for appliance in st.session_state.appliances}) or st.session_state.rooms
-            track_event("home_preset_applied", preset_id=official_preset["id"])
-        elif shared_preset:
-            st.session_state.family_name = shared_preset["name"]
-            st.session_state.tariff = float(shared_preset["tariff"])
-            st.session_state.rooms = list(shared_preset["rooms"] or [])
-            st.session_state.appliances = home_to_appliances(shared_preset)
-            st.session_state.active_preset_name = shared_preset["name"]
-            track_event("shared_home_preset_applied", preset_id=shared_preset["id"])
-        st.rerun()
+    sel_p_name = st.selectbox("Carregar perfil pré-configurado:", ["(Manter atual)"] + preset_names)
+    if sel_p_name != "(Manter atual)":
+        for p in presets:
+            if p["name"] == sel_p_name:
+                if st.button(f"📥 Aplicar '{p['name']}'"):
+                    reset_to_preset(p["id"])
+                    st.session_state.family_name = f"Casa ({p['name'].split('(')[0].strip()})"
+                    st.rerun()
 
 with col_tariff:
     st.markdown("##### ⚙️ Tarifa Elétrica")
@@ -155,12 +135,12 @@ with col_tariff:
 st.divider()
 
 # 2. Gerenciamento do Inventário (Visual com Cards rápidos, Adicionar e Exportar/Importar JSON)
-tab_inventory, tab_quick_add, tab_custom_add, tab_rooms, tab_save, tab_validate = st.tabs([
+tab_inventory, tab_quick_add, tab_custom_add, tab_rooms, tab_share, tab_validate = st.tabs([
     "📋 Inventário Atual",
     "⚡ Adicionar Rápido (Cards)",
     "➕ Personalizado",
     "🚪 Gerenciar Cômodos",
-    "💾 Salvar minha casa",
+    "💾 Exportar / Compartilhar JSON",
     "🧾 Validar Fatura Real",
 ])
 
@@ -180,7 +160,6 @@ with tab_rooms:
             clean_name = new_room_name.strip()
             if clean_name and clean_name not in st.session_state.rooms:
                 st.session_state.rooms.append(clean_name)
-                track_event("room_added", room_count=len(st.session_state.rooms))
                 st.success(f"Cômodo '{clean_name}' cadastrado com sucesso!")
                 st.rerun()
             elif clean_name in st.session_state.rooms:
@@ -207,7 +186,6 @@ with tab_rooms:
                 a.category = "Geral"
         if "Geral" not in st.session_state.rooms:
             st.session_state.rooms.append("Geral")
-        track_event("room_removed", room_count=len(st.session_state.rooms))
         st.rerun()
 
 with tab_quick_add:
@@ -229,7 +207,7 @@ with tab_quick_add:
         with q_cols[idx % 3]:
             with st.container(border=True):
                 # Imagem SVG do aparelho se existir
-                svg_path = f"assets/img/appliances/{c.id}.svg"
+                svg_path = appliance_icon_path(c.id)
                 try:
                     with open(svg_path, "r", encoding="utf-8") as f:
                         svg_code = f.read()
@@ -240,16 +218,6 @@ with tab_quick_add:
                 st.markdown(f"**{c.name}**")
                 st.caption(f"Potência: **{c.power_watts:.0f} W** | Uso: **{c.hours_per_day:.1f}h/dia**")
                 if st.button(f"➕ Adicionar ao {quick_dest_room}", key=f"quick_add_{c.id}"):
-                    duplicate = any(
-                        appliance.name.casefold() == c.name.casefold()
-                        and appliance.category == quick_dest_room
-                        for appliance in st.session_state.appliances
-                    )
-                    if duplicate and not st.session_state.get(f"confirm_duplicate_{c.id}", False):
-                        st.session_state[f"confirm_duplicate_{c.id}"] = False
-                        st.warning("Este aparelho ja existe neste comodo. Marque a confirmacao para adicionar uma segunda unidade.")
-                        st.checkbox("Confirmar segunda unidade", key=f"confirm_duplicate_{c.id}")
-                        st.stop()
                     st.session_state.appliances.append(
                         Appliance(
                             id=str(uuid.uuid4())[:8],
@@ -261,7 +229,6 @@ with tab_quick_add:
                             description=c.description,
                         )
                     )
-                    track_event("appliance_added_quick", appliance_id=c.id)
                     st.session_state.quick_add_notification = f"✅ **{c.name}** adicionado com sucesso ao cômodo **{quick_dest_room}**! Total na casa: {len(st.session_state.appliances)} aparelhos."
                     st.rerun()
 
@@ -292,28 +259,72 @@ with tab_custom_add:
         )
         st.session_state.appliances.append(new_app)
         st.session_state.active_preset_name = "Personalizado"
-        track_event("appliance_added_custom", power_watts=new_power, hours_per_day=new_hours, days_per_month=new_days)
         st.session_state.quick_add_notification = f"✅ **{new_name}** adicionado com sucesso ao cômodo **{new_cat}**!"
         st.success(f"'{new_name}' adicionado com sucesso ao cômodo '{new_cat}'!")
         st.rerun()
 
-with tab_save:
-    st.markdown("#### 💾 Salvar residência")
-    st.caption("A residência usa o nome informado em ‘Nome da Casa / Família’ e fica vinculada à sua conta.")
-    if st.button("Salvar minha casa", type="primary"):
-        try:
-            saved_home = home_repository.save_home(
-                st.session_state.participant_id,
-                st.session_state.family_name,
-                float(st.session_state.tariff),
-                list(st.session_state.rooms),
-                list(st.session_state.appliances),
-            )
-            st.session_state.family_name = saved_home["name"]
-            st.success("Sua residência foi salva na sua conta.")
-            track_event("participant_home_saved", home_id=saved_home["id"], monthly_kwh=saved_home["monthly_kwh"])
-        except (ValueError, HomeStorageUnavailable) as exc:
-            st.error(str(exc))
+with tab_share:
+    st.markdown("#### 💾 Compartilhar ou Guardar Casa em JSON")
+    st.caption("Como a aplicação roda em modo local, o aluno pode exportar seu inventário em JSON para entregar ao professor ou carregar o JSON de um colega!")
+
+    import json
+
+    export_data = {
+        "family_name": st.session_state.get("family_name", "Minha Casa"),
+        "tariff": st.session_state.tariff,
+        "rooms": st.session_state.rooms,
+        "appliances": [
+            {
+                "id": a.id,
+                "name": a.name,
+                "power_watts": a.power_watts,
+                "hours_per_day": a.hours_per_day,
+                "days_per_month": a.days_per_month,
+                "category": a.category,
+            }
+            for a in st.session_state.appliances
+        ],
+    }
+    json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
+
+    col_exp, col_imp = st.columns(2)
+    with col_exp:
+        st.markdown("##### 📤 Baixar JSON da Residência")
+        st.download_button(
+            label="💾 Baixar Arquivo casa_aluno.json",
+            data=json_str,
+            file_name=f"{st.session_state.get('family_name', 'casa').replace(' ', '_').lower()}.json",
+            mime="application/json",
+        )
+        st.text_area("Pré-visualização do JSON:", json_str, height=160)
+
+    with col_imp:
+        st.markdown("##### 📥 Carregar JSON de Outro Aluno / Arquivo")
+        uploaded_json = st.file_uploader("Selecione um arquivo .json de inventário:", type=["json"])
+        if uploaded_json is not None:
+            try:
+                loaded = json.load(uploaded_json)
+                if st.button("📥 Importar e Substituir Inventário Atual"):
+                    st.session_state.family_name = loaded.get("family_name", "Casa Importada")
+                    st.session_state.tariff = float(loaded.get("tariff", 0.85))
+                    if "rooms" in loaded and isinstance(loaded["rooms"], list):
+                        st.session_state.rooms = loaded["rooms"]
+                    st.session_state.appliances = [
+                        Appliance(
+                            id=item.get("id", str(uuid.uuid4())[:8]),
+                            name=item["name"],
+                            power_watts=float(item["power_watts"]),
+                            hours_per_day=float(item["hours_per_day"]),
+                            days_per_month=float(item.get("days_per_month", 30.0)),
+                            category=item.get("category", "Geral"),
+                        )
+                        for item in loaded.get("appliances", [])
+                    ]
+                    st.session_state.quick_add_notification = "🏠 Inventário residencial e cômodos importados com sucesso!"
+                    st.success("Casa importada com sucesso!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao ler arquivo JSON: {e}")
 
 with tab_inventory:
     st.markdown(f"#### 🏠 Residência: {st.session_state.get('family_name', 'Minha Residência')}")
@@ -350,7 +361,6 @@ with tab_inventory:
                 if st.button("🗑️ Sim, excluir", type="primary", use_container_width=True):
                     if appliance_to_delete in st.session_state.appliances:
                         st.session_state.appliances.remove(appliance_to_delete)
-                    track_event("appliance_deleted", appliance_count=len(st.session_state.appliances))
                     st.session_state.appliance_to_delete_id = None
                     st.rerun()
             with c_no:
@@ -384,7 +394,6 @@ with tab_inventory:
                             target_app.power_watts = ed_power
                             target_app.hours_per_day = ed_hours
                             target_app.days_per_month = ed_days
-                            track_event("appliance_edited", appliance_count=len(st.session_state.appliances))
                             st.session_state.editing_appliance_id = None
                             st.success(f"Aparelho '{ed_name}' atualizado com sucesso!")
                             st.rerun()
@@ -403,19 +412,7 @@ with tab_inventory:
                 st.session_state.appliance_to_delete_id = None
 
         # 2. Agrupar aparelhos por cômodo calculando consumo
-        room_consumption = {
-            room_name: sum(
-                (app.power_watts / 1000.0) * app.hours_per_day * app.days_per_month
-                for app in st.session_state.appliances
-                if app.category == room_name
-            )
-            for room_name in rooms_in_inventory
-        }
-        active_rooms = sorted(
-            [r for r in rooms_in_inventory if sel_filter_room == "Todos os Cômodos" or r == sel_filter_room],
-            key=lambda room_name: room_consumption[room_name],
-            reverse=True,
-        )
+        active_rooms = [r for r in rooms_in_inventory if (sel_filter_room == "Todos os Cômodos" or r == sel_filter_room)]
 
         to_remove = None
 
@@ -461,18 +458,18 @@ with tab_inventory:
             # Bloco Container do Cômodo com borda colorida e cabeçalho informativo
             st.markdown(
                 f"""
-                <div style="background: var(--secondary-background-color, rgba(127,127,127,0.05)); border-left: 4px solid {r_color}; border-top: 1px solid var(--border-color, rgba(127,127,127,0.2)); border-right: 1px solid var(--border-color, rgba(127,127,127,0.2)); border-bottom: 1px solid var(--border-color, rgba(127,127,127,0.2)); border-radius: 12px; padding: 12px 16px; margin: 18px 0 12px 0;">
+                <div style="background: rgba(255, 255, 255, 0.02); border-left: 4px solid {r_color}; border-top: 1px solid rgba(255,255,255,0.08); border-right: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 16px; margin: 18px 0 12px 0;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 1.3rem;">{r_icon}</span>
-                            <span style="font-size: 1.15rem; font-weight: 700; color: inherit;">{room_name}</span>
+                            <span style="font-size: 1.15rem; font-weight: 700; color: #f8fafc;">{room_name}</span>
                             <span style="background: {r_bg}; color: {r_color}; border: 1px solid {r_color}44; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600;">
                                 {len(room_items_with_kwh)} {'aparelho' if len(room_items_with_kwh) == 1 else 'aparelhos'}
                             </span>
                         </div>
-                        <div style="font-size: 0.85rem; color: inherit; opacity: 0.9; font-weight: 500;">
+                        <div style="font-size: 0.85rem; color: #cbd5e1; font-weight: 500;">
                             Total: <strong style="color: {r_color}; font-size: 0.95rem;">{room_total_kwh:.1f} kWh/mês</strong> 
-                            <span style="opacity: 0.55;">&bull;</span>
+                            <span style="color: #64748b;">&bull;</span> 
                             <span style="color: #10b981; font-weight: 600;">R$ {room_total_cost:.2f}/mês</span>
                         </div>
                     </div>
@@ -537,8 +534,8 @@ with tab_inventory:
 
                 with col_target:
                     with st.container(border=True):
-                        # Topo do card: ícone e título
-                        c_card_info = st.container()
+                        # Topo do Card: Ícone + Título + Botão de Excluir circular (X vermelho)
+                        c_card_info, c_card_del = st.columns([5.2, 0.8], vertical_alignment="top")
 
                         with c_card_info:
                             info_html = (
@@ -548,14 +545,14 @@ with tab_inventory:
                                 f"</div>"
                                 f"<div style='min-width: 0;'>"
                                 f"<div style='display: flex; align-items: center; gap: 6px; flex-wrap: wrap;'>"
-                                f"<span style='color: inherit; font-size: 1rem; font-weight: 700; word-break: break-word;'>{app.name}</span>"
+                                f"<span style='color: #f8fafc; font-size: 1rem; font-weight: 700; word-break: break-word;'>{app.name}</span>"
                                 f"{top_badge}"
                                 f"</div>"
-                                f"<div style='color: inherit; opacity: 0.88; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 3px;'>"
-                                f"<span>⚡ <strong style='color: inherit; opacity: 1;'>{app.power_watts:.0f} W</strong></span>"
-                                f"<span style='opacity: 0.55;'>&bull;</span>"
+                                f"<div style='color: #94a3b8; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 3px;'>"
+                                f"<span>⚡ <strong style='color: #f1f5f9;'>{app.power_watts:.0f} W</strong></span>"
+                                f"<span style='color: #475569;'>&bull;</span>"
                                 f"<span>⏱️ {app.hours_per_day:.1f} h/d</span>"
-                                f"<span style='opacity: 0.55;'>&bull;</span>"
+                                f"<span style='color: #475569;'>&bull;</span>"
                                 f"<span>📅 {app.days_per_month:.0f} d/m</span>"
                                 f"</div>"
                                 f"</div>"
@@ -563,30 +560,32 @@ with tab_inventory:
                             )
                             st.markdown(info_html, unsafe_allow_html=True)
 
-                        # Base do card: consumo, custo e ações
-                        c_card_stats, c_card_actions = st.columns([3.5, 0.8], vertical_alignment="bottom")
+                        with c_card_del:
+                            if st.button("✕", key=f"del_{app.id}_{orig_idx}", help=f"Excluir {app.name}"):
+                                st.session_state.appliance_to_delete_id = app.id
+                                st.rerun()
+
+                        # Base do Card: Consumo (kWh) e Custo (R$) alinhados à esquerda (início) + Botão de clique/edição
+                        c_card_stats, c_card_edit = st.columns([3.5, 2.5], vertical_alignment="bottom")
 
                         with c_card_stats:
                             stats_html = (
                                 f"<div style='margin-top: 10px;'>"
-                                f"<div style='color: var(--primary-color, #c02626); font-weight: 800; font-size: 1.05rem;'>"
+                                f"<div style='color: #38bdf8; font-weight: 800; font-size: 1.05rem; letter-spacing: -0.02em;'>"
                                 f"{app_kwh:.1f} kWh/mês"
                                 f"</div>"
-                                f"<div style='color: inherit; font-size: 0.88rem; font-weight: 700; margin-top: 1px;'>"
+                                f"<div style='color: #10b981; font-size: 0.88rem; font-weight: 700; margin-top: 1px;'>"
                                 f"R$ {app_cost:.2f}/mês"
                                 f"</div>"
                                 f"</div>"
                             )
                             st.markdown(stats_html, unsafe_allow_html=True)
 
-                        with c_card_actions:
-                            with st.popover("⚙️", key=f"config_{app.id}_{orig_idx}", help=f"Configurar {app.name}"):
-                                if st.button("✏️ Editar", key=f"config_edit_{app.id}_{orig_idx}", use_container_width=True):
-                                    st.session_state.editing_appliance_id = app.id
-                                    st.rerun()
-                                if st.button("🗑️ Excluir", key=f"config_delete_{app.id}_{orig_idx}", use_container_width=True):
-                                    st.session_state.appliance_to_delete_id = app.id
-                                    st.rerun()
+                        with c_card_edit:
+                            st.write("")
+                            if st.button("✏️ Editar", key=f"btn_edit_{app.id}_{orig_idx}", help=f"Editar {app.name}", use_container_width=True):
+                                st.session_state.editing_appliance_id = app.id
+                                st.rerun()
 
 with tab_validate:
     st.markdown("#### 🧾 Validador de Conta de Luz Real vs Consumo Estimado")
@@ -606,13 +605,6 @@ with tab_validate:
         )
 
     val_res = validate_against_real_bill(sim_kwh, real_val, st.session_state.tariff)
-    track_event_on_change(
-        "bill_validation_event_signature",
-        "real_bill_validated",
-        simulated_monthly_kwh=sim_kwh,
-        real_bill_reais=real_val,
-        verdict=val_res["verdict"],
-    )
 
     st.markdown(
         f"<div style='background: rgba(14, 165, 233, 0.1); border-left: 4px solid #38bdf8; padding: 15px; border-radius: 8px; margin: 15px 0;'>"
@@ -621,7 +613,7 @@ with tab_validate:
         f"<p>• <strong>Consumo Estimado da Fatura Real:</strong> ~ {val_res['inferred_real_kwh']:.1f} kWh (R$ {val_res['real_bill_reais']:.2f})</p>"
         f"<p>• <strong>Diferença Identificada:</strong> {abs(val_res['diff_kwh']):.1f} kWh (R$ {abs(val_res['diff_cost']):.2f})</p>"
         f"<hr style='border-color: rgba(255,255,255,0.1);'/>"
-        f"<p style='color: inherit; font-size: 0.95rem;'>💡 {val_res['explanation']}</p>"
+        f"<p style='color: #f8fafc; font-size: 0.95rem;'>💡 {val_res['explanation']}</p>"
         f"</div>",
         unsafe_allow_html=True,
     )
@@ -680,11 +672,11 @@ with col_rank:
                 f"<div>"
                 f"<span style='font-size: 1.2rem; margin-right: 6px;'>{medal}</span>"
                 f"<strong>{item['name']}</strong>"
-                f"<div style='font-size: 0.8rem; color: inherit; opacity: 0.88; margin-left: 32px;'>{item['category']}</div>"
+                f"<div style='font-size: 0.8rem; color: #94a3b8; margin-left: 32px;'>{item['category']}</div>"
                 f"</div>"
                 f"<div style='text-align: right;'>"
                 f"<span style='font-weight: 700; color: #38bdf8;'>{item['monthly_kwh']:.1f} kWh</span>"
-                f"<span style='font-size: 0.85rem; color: inherit; opacity: 0.88;'> ({item['percentage']}%)</span>"
+                f"<span style='font-size: 0.85rem; color: #cbd5e1;'> ({item['percentage']}%)</span>"
                 f"<div style='font-size: 0.8rem; color: #10b981;'>R$ {item_cost:.2f}/mês</div>"
                 f"</div>"
                 f"</div>",

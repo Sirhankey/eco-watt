@@ -11,6 +11,7 @@ import streamlit as st
 
 from ecowatt.models.appliance import Appliance
 from ecowatt.models.pc_component import PCComponent
+from ecowatt.services.appliance_display import normalize_category, sort_appliances
 from ecowatt.services.preset_service import load_default_appliances, load_facts, load_presets
 from ecowatt.services.analytics_service import is_supabase_configured
 from ecowatt.utils.features import feature_enabled
@@ -84,20 +85,20 @@ def load_official_appliances() -> List[Appliance]:
         records = _fetch_table("official_appliances", {"status": "eq.published"})
         if records is not None:
             _set_source("Supabase")
-            return [
+            return sort_appliances([
                 Appliance(
                     id=str(item["id"]),
                     name=item["name"],
                     power_watts=float(item["power_watts"]),
                     hours_per_day=float(item["default_hours_per_day"]),
                     days_per_month=float(item.get("default_days_per_month", 30)),
-                    category=item.get("category", "Geral"),
+                    category=normalize_category(item.get("category")),
                     description=item.get("description"),
                 )
                 for item in records
-            ]
+            ])
     _mark_local_fallback()
-    return load_default_appliances()
+    return sort_appliances(load_default_appliances())
 
 
 def load_official_pc_components() -> Dict[str, List[PCComponent]]:
